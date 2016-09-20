@@ -90,6 +90,33 @@ function console {
   echo "https://127.0.0.1:8443/console"
 }
 
+function create-volume {
+  local __volume=$1
+  local __size=$2
+  local __path=$3
+
+  [ $# -lt 1 ] && echo "volumename is required" && exit 1
+
+cat <<-EOF > /tmp/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${__volume}
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Recycle
+  hostPath:
+    path: /Volumes/${__volume}
+EOF
+
+oc create -f /tmp/pv.yaml 
+rm /tmp/pv.yaml
+}
+
 function help {
         echo "Valid commands:"
         echo "oc cluster up [profile] [OPTIONS]"
@@ -99,6 +126,7 @@ function help {
         echo "oc cluster status"
         echo "oc cluster into"
         echo "oc cluster console"
+        echo "oc cluster create-volume volumeName [size|10Gi] [path|/Volumes/<volumeName>]"
 }
 
 # Use -gt 1 to consume two arguments per pass in the loop (e.g. each
@@ -127,12 +155,19 @@ then
         list "$@"
         ;;
       status)
+        shift
         status "$@"
         ;;
       into)
+        shift
         into "$@"
         ;;
+      create-volume)
+        shift
+        create-volume "$@"
+        ;;
       console)
+        shift
         console "$@"
         ;;
       -h|help)
