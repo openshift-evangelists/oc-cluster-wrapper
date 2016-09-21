@@ -76,8 +76,26 @@ function status {
   fi
 }
 
+# If the cluster is up, it will bring it down and destroy active_profile
+# Otherwise will ask for profile 
 function destroy {
-  echo "destroy"
+  local _profile=$1
+
+  status
+  local _status=$?
+  if [ $_status -ne 0 ] || [ "$_profile" != "" ]
+  then
+     echo "Removing profile $_profile"
+     local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')
+     if [ "$_active_profile" == "$_profile" ]
+     then
+        down
+     fi
+     rm -rf $OPENSHIFT_HOME_DIR/$_profile
+     # TODO: Remove the images
+  else
+     echo "You need to specify the profile to destroy"
+  fi
 }
 
 function list {
@@ -137,7 +155,7 @@ function help {
         echo "Valid commands:"
         echo "oc cluster up [profile] [OPTIONS]"
         echo "oc cluster down"
-        echo "oc cluster destroy"
+        echo "oc cluster destroy [profile]"
         echo "oc cluster list"
         echo "oc cluster status"
         echo "oc cluster into"
