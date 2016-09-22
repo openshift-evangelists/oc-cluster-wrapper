@@ -14,9 +14,9 @@ function up {
   fi
 
   # This is where oc cluster stores it's data
-  local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/$_profile/data
-  local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/$_profile/config
-  local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/$_profile/volumes
+  local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/data
+  local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/config
+  local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/volumes
 
   if test ! -d $OPENSHIFT_HOST_CONFIG_DIR; then
      mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
@@ -52,10 +52,12 @@ function up {
          --context="default/127-0-0-1:8443/system:admin"
 
   echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
+  # Create user admin that can log into the console
+  oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
 }
 
 function down {
-  status
+  status -s
   local _status=$?
   if [ $_status -ne 0 ]
   then  
@@ -65,13 +67,22 @@ function down {
   fi
 }
 
+#
+# Args:
+#  $1: [-s] silent
 function status {
+  local _silent=$1
+
   if [[ "$(docker ps -f name=origin -q)" == "" ]]
   then
-     echo "no cluster running"
+     if [ "$_silent" != "-s" ]; then
+        echo "no cluster running"
+     fi
      return 0
   else
-     echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
+     if [ "$_silent" != "-s" ]; then
+        echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
+     fi
      return 1
   fi
 }
@@ -80,30 +91,47 @@ function status {
 # Otherwise will ask for profile 
 function destroy {
   local _profile=$1
+  local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
 
-  status
-  local _status=$?
-  if [ $_status -ne 0 ] || [ "$_profile" != "" ]
+  if [ $# -lt 1 ] && [ "${_active_profile}" == "" ]
+  then
+    echo "You need to specify a profile, or have a running cluster"
+    exit 1
+  fi
+  [ "$_profile" == "" ] && _profile=$_active_profile
+
+  if [ "$_profile" != "" ]
   then
      echo "Removing profile $_profile"
-     local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')
      if [ "$_active_profile" == "$_profile" ]
      then
         down
      fi
-     rm -rf $OPENSHIFT_HOME_DIR/$_profile
+     echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
+     rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
      # TODO: Remove the images
-  else
-     echo "You need to specify the profile to destroy"
   fi
 }
 
 function list {
   echo "Profiles:"
-  for i in `ls $OPENSHIFT_HOME_DIR`
+  for i in `ls $OPENSHIFT_HOME_DIR/profiles`
   do
      echo "- $i"
   done
+}
+
+function deploy-nexus {
+  status -s
+  local _status=$?
+  if [ $_status -ne 0 ]
+  then
+     oc adm new-project ci --as=system:admin
+     create-shared-volume ci/nexus-data
+     oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
+     oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+     echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters" 
+  fi
 }
 
 function into {
@@ -123,7 +151,7 @@ function create-volume {
   [ $# -lt 1 ] && echo "volumename is required" && exit 1
 
   __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
-  local __path=$OPENSHIFT_HOME_DIR/${__profile}/volumes/${__volume}
+  local __path=$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}
 
   if test ! -d $__path; then
     mkdir -p $__path
@@ -151,16 +179,63 @@ rm /tmp/pv.yaml
 echo "Volume created in ${__path}"
 }
 
+function create-shared-volume {
+  [ $# -lt 1 ] && echo "volumename is required. This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
+
+  local __projectclaim=$1
+  arrIN=(${__projectclaim//\// })
+  [ ${#arrIN[@]} -lt 2 ] && echo "volumename format is not valid.  This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
+  
+  local __volume=${arrIN[1]}
+  local __project=${arrIN[0]}
+  local __size=$2
+  local __path=$3
+
+  local __path=$OPENSHIFT_HOME_DIR/volumes/${__volume}
+
+  if test ! -d $__path; then
+    mkdir -p $__path
+  fi
+
+cat <<-EOF > /tmp/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${__volume}
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: ${__project}
+    name: ${__volume}
+  persistentVolumeReclaimPolicy: Recycle
+  hostPath:
+    path: ${__path}
+EOF
+
+oc create -f /tmp/pv.yaml --as=system:admin
+rm /tmp/pv.yaml
+
+echo "Volume created in ${__path}"
+}
+
 function help {
         echo "Valid commands:"
-        echo "oc cluster up [profile] [OPTIONS]"
-        echo "oc cluster down"
-        echo "oc cluster destroy [profile]"
-        echo "oc cluster list"
-        echo "oc cluster status"
-        echo "oc cluster into"
-        echo "oc cluster console"
-        echo "oc cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/<profile>/volumes/<volumeName>]"
+        echo "oc-cluster up [profile] [OPTIONS]"
+        echo "oc-cluster down"
+        echo "oc-cluster destroy [profile]"
+        echo "oc-cluster list"
+        echo "oc-cluster status"
+        echo "oc-cluster into"
+        echo "oc-cluster console"
+        echo "oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
+        echo "oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
+        echo "oc-cluster deploy-nexus"
 }
 
 # Use -gt 1 to consume two arguments per pass in the loop (e.g. each
@@ -199,6 +274,14 @@ then
       create-volume)
         shift
         create-volume "$@"
+        ;;
+      create-shared-volume)
+        shift
+        create-shared-volume "$@"
+        ;;
+      deploy-nexus)
+        shift
+        create-shared-volume "$@"
         ;;
       console)
         shift
