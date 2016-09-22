@@ -127,7 +127,7 @@ function deploy-nexus {
   if [ $_status -ne 0 ]
   then
      oc adm new-project ci --as=system:admin
-     create-shared-volume ci/nexus-data
+     create-shared-volume 'ci/nexus-data'
      oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
      oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
      echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters" 
@@ -196,6 +196,8 @@ function create-shared-volume {
   if test ! -d $__path; then
     mkdir -p $__path
   fi
+  
+  # TODO: Check if volume exists
 
 cat <<-EOF > /tmp/pv.yaml
 apiVersion: v1
@@ -281,7 +283,7 @@ then
         ;;
       deploy-nexus)
         shift
-        create-shared-volume "$@"
+        deploy-nexus "$@"
         ;;
       console)
         shift
