@@ -134,8 +134,8 @@ function deploy-nexus {
   fi
 }
 
-function into {
-  echo "Execing into the Origin Container"
+function ssh {
+  echo "Going into the Origin Container"
   docker exec -it origin /bin/bash
 }
 
@@ -233,7 +233,7 @@ function help {
         echo "oc-cluster destroy [profile]"
         echo "oc-cluster list"
         echo "oc-cluster status"
-        echo "oc-cluster into"
+        echo "oc-cluster ssh"
         echo "oc-cluster console"
         echo "oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
         echo "oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
@@ -269,9 +269,9 @@ then
         shift
         status "$@"
         ;;
-      into)
+      ssh)
         shift
-        into "$@"
+        ssh "$@"
         ;;
       create-volume)
         shift
