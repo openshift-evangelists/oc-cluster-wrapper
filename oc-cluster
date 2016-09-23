@@ -152,13 +152,20 @@ function console {
 
 function create-volume {
   local __volume=$1
-  local __size=$2
-  local __path=$3
+  local __size='10Gi'
+  local __path=''
 
   [ $# -lt 1 ] && echo "volumename is required" && exit 1
 
   __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
-  local __path=$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}
+  if [ ! -z "$2" ]; then
+    __size=$2
+  fi
+  if [ -z "$3" ]; then
+    __path=$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}
+  else
+    __path=$3
+  fi
 
   mkdir -p $__path
 
@@ -169,7 +176,7 @@ metadata:
   name: ${__volume}
 spec:
   capacity:
-    storage: 10Gi
+    storage: ${__size}
   accessModes:
     - ReadWriteOnce
     - ReadWriteMany
@@ -184,6 +191,11 @@ rm /tmp/pv.yaml
 echo "Volume created in ${__path}"
 }
 
+#
+# Args:
+#  $1: volumeName. Format (project/volumeName). A prebounded claim will be created to bound to a claim with Name volume in project 
+#  $2: size (10Gi, 512Mi) (optional)
+#  $3: Path for the volume (optional)
 function create-shared-volume {
   [ $# -lt 1 ] && echo "volumename is required. This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
 
@@ -193,10 +205,17 @@ function create-shared-volume {
   
   local __volume=${arrIN[1]}
   local __project=${arrIN[0]}
-  local __size=$2
-  local __path=$3
+  local __size='10Gi'
+  local __path=''
 
-  local __path=$OPENSHIFT_HOME_DIR/volumes/${__volume}
+  if [ ! -z "$2" ]; then
+    __size=$2
+  fi
+  if [ -z "$3" ]; then
+    __path=$OPENSHIFT_HOME_DIR/volumes/${__volume}
+  else
+    __path=$3
+  fi
 
   mkdir -p $__path
   
@@ -209,7 +228,7 @@ metadata:
   name: ${__volume}
 spec:
   capacity:
-    storage: 10Gi
+    storage: ${__size}
   accessModes:
     - ReadWriteOnce
     - ReadWriteMany
