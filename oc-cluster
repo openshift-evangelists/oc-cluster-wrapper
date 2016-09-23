@@ -102,14 +102,20 @@ function destroy {
 
   if [ "$_profile" != "" ]
   then
-     echo "Removing profile $_profile"
-     if [ "$_active_profile" == "$_profile" ]
+     read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
+     echo    # move to a new line
+     if [[ $REPLY =~ ^[Yy]$ ]]
      then
-        down
+        # do dangerous stuff
+        echo "Removing profile $_profile"
+        if [ "$_active_profile" == "$_profile" ]
+        then
+           down
+        fi
+        echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
+        rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
+        # TODO: Remove the images
      fi
-     echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
-     rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
-     # TODO: Remove the images
   fi
 }
 
