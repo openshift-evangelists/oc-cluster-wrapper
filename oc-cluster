@@ -168,7 +168,7 @@ spec:
   accessModes:
     - ReadWriteOnce
     - ReadWriteMany
-  persistentVolumeReclaimPolicy: Recycle
+  persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: ${__path}
 EOF
@@ -215,7 +215,7 @@ spec:
     kind: PersistentVolumeClaim
     namespace: ${__project}
     name: ${__volume}
-  persistentVolumeReclaimPolicy: Recycle
+  persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: ${__path}
 EOF
