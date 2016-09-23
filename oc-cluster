@@ -72,7 +72,6 @@ function down {
 # Args:
 #  $1: [-s] silent (or anything)
 function status {
-  set -x
   local _silent=$1
 
   if [[ "$(docker ps -f name=origin -q)" == "" ]]
