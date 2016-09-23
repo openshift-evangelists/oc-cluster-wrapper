@@ -5,7 +5,6 @@ OPENSHIFT_CACHE_DIR=${OPENSHIFT_CACHE:-/var/lib/origin}
 
 function up {
   local _profile="$1"
-  echo "$_profile"
 
   # Test that there is not a running cluster already
   status -s
@@ -16,10 +15,12 @@ function up {
      exit 1
   fi  
 
-  if [ "$_profile" == "" ]
+  if [ "$_profile" == "" ] || [[ $_profile == -* ]]
   then
      echo "Using default profile"
      _profile="default"
+  else
+     shift # Remove profile name
   fi
 
   # This is where oc cluster stores it's data
@@ -31,7 +32,6 @@ function up {
   mkdir -p $OPENSHIFT_HOST_DATA_DIR
   mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
 
-  shift # Remove profile name
 
   # Create the profile markfile
   echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
