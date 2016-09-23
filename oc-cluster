@@ -70,19 +70,19 @@ function down {
 
 #
 # Args:
-#  $1: [-s] silent (or anything)
+#  $1: [-s] silent
 function status {
   local _silent=$1
 
   if [[ "$(docker ps -f name=origin -q)" == "" ]]
   then
-     if [ -z "$_silent" ]
+     if [ "$_silent" != "-s"  ]
      then
-        echo 'no cluster running'
+        echo "no cluster running"
      fi
      return 0
   else
-     if [ -z "$_silent" ]
+     if [ "$_silent" != "-s"  ]
      then
         echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
      fi
@@ -286,12 +286,10 @@ then
         destroy "$@"
         ;;
       list)
-        shift # past argument
-        list "$@"
+        list
         ;;
       status)
-        shift
-        status "$@"
+        status
         ;;
       ssh)
         shift
