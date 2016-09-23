@@ -7,6 +7,15 @@ function up {
   local _profile="$1"
   echo "$_profile"
 
+  # Test that there is not a running cluster already
+  status -s
+  _status=$?
+  if [ $_status -ne 0 ]
+  then
+     echo "There is a cluster already running. You can not run 2 cluster at the same time"
+     exit 1
+  fi  
+
   if [ "$_profile" == "" ]
   then
      echo "Using default profile"
@@ -18,17 +27,9 @@ function up {
   local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/config
   local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/volumes
 
-  if test ! -d $OPENSHIFT_HOST_CONFIG_DIR; then
-     mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
-  fi
-
-  if test ! -d $OPENSHIFT_HOST_DATA_DIR; then
-    mkdir -p $OPENSHIFT_HOST_DATA_DIR
-  fi
-
-  if test ! -d $OPENSHIFT_HOST_VOLUMES_DIR; then
-    mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
-  fi
+  mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
+  mkdir -p $OPENSHIFT_HOST_DATA_DIR
+  mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
 
   shift # Remove profile name
 
@@ -159,9 +160,7 @@ function create-volume {
   __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
   local __path=$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}
 
-  if test ! -d $__path; then
-    mkdir -p $__path
-  fi
+  mkdir -p $__path
 
 cat <<-EOF > /tmp/pv.yaml
 apiVersion: v1
@@ -199,9 +198,7 @@ function create-shared-volume {
 
   local __path=$OPENSHIFT_HOME_DIR/volumes/${__volume}
 
-  if test ! -d $__path; then
-    mkdir -p $__path
-  fi
+  mkdir -p $__path
   
   # TODO: Check if volume exists
 
