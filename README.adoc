@@ -80,7 +80,7 @@ Now, let's work with the cluster:
 
 ----
 $ oc new-project example
-$ oc deploy wildfly~http://github.com/jorgemoralespou/sample-java-app.git
+$ oc new-app wildfly~https://github.com/OpenShiftDemos/os-sample-java-web.git
 ----
 
 I'm gone for a while, I need to know if my cluster is running:
