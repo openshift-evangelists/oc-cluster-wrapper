@@ -1,0 +1,186 @@
+= OpenShift "oc cluster up" Wrapper script
+*oc cluster up* is a great tool for doing local development in openshift, but it lacks some really interesting features to 
+be productive from a developer's perspective. This script helps developer's with their cusual/daily worksflows while using
+*oc cluster* as the internal tool.
+
+== What it provides
+This script provides with the following:
+
+* cluster profiles
+* cluster management lifecycle
+* convenience methods for working with persistent volumes
+* conenience methods for adding commons software to your cluster (This will be rewritten to be a plugin like mechanism)
+
+== Cluster profiles
+As a developer, you do not always want to work on the same project, with the same code. Sometimes you need to be able to
+switch between different clusters. For that, we provide with the *profile* concept. How it works? Easier to show you an example:
+
+----
+oc-cluster up                 # Brings up a <default> cluster
+oc-cluster down
+oc-cluster up java-cluster    # Brings up a cluster named java-cluster
+oc-cluster down  
+oc-cluster up workshop        # Brings up a cluster named workshop
+oc-cluster down
+oc-cluster up java-cluster    # Brings up again my java-cluster with all the info I had in there before
+oc-cluster down
+----
+
+As you've realised the clusters by default are persistent. That means that you can create as many clusters (profiles) as you
+want, and bring them up and down at will. But what do I do once I'm finished with a cluster? For that there is *cluster management lifecycle*.
+
+== Cluster management lifecycle
+Again, we'll use some examples to ilustrate:
+
+----
+$ oc-cluster up example
+oc cluster up --public-hostname 127.0.0.1 --host-data-dir /Users/jmorales/.oc/profiles/example/data
+              --host-config-dir /Users/jmorales/.oc/profiles/example/config
+              --use-existing-config
+-- Checking OpenShift client ... OK
+-- Checking Docker client ... OK
+-- Checking Docker version ... OK
+-- Checking for existing OpenShift container ... OK
+-- Checking for openshift/origin:v1.3.0 image ... OK
+-- Checking Docker daemon configuration ... OK
+-- Checking for available ports ... OK
+-- Checking type of volume mount ...
+   Using Docker shared volumes for OpenShift volumes
+-- Creating host directories ... OK
+-- Finding server IP ...
+   Using public hostname IP 127.0.0.1 as the host IP
+   Using 127.0.0.1 as the server IP
+-- Starting OpenShift container ...
+   Creating initial OpenShift configuration
+   Starting OpenShift using container 'origin'
+   Waiting for API server to start listening
+   OpenShift server started
+-- Installing registry ... OK
+-- Installing router ... OK
+-- Importing image streams ... OK
+-- Importing templates ... OK
+-- Login to server ... OK
+-- Creating initial project "myproject" ... OK
+-- Server Information ...
+   OpenShift server started.
+   The server is accessible via web console at:
+       https://127.0.0.1:8443
+
+   You are logged in as:
+       User:     developer
+       Password: developer
+
+   To login as administrator:
+       oc login -u system:admin
+
+Any user is sudoer. They can execute commands with '--as=system:admin'
+----
+
+Now, let's work with the cluster:
+
+----
+$ oc new-project example
+$ oc deploy wildfly~http://github.com/jorgemoralespou/sample-java-app.git
+----
+
+I'm gone for a while, I need to know if my cluster is running:
+
+----
+$ oc-cluster status
+oc cluster running. Current profile <example>
+----
+
+I need to get some information on my clusters:
+
+----
+$ oc-cluster list
+Profiles:
+- example
+- roadshow
+- test
+
+$ oc-cluster console
+https://127.0.0.1:8443/console
+----
+
+I need to get into the origin container, to check something:
+
+----
+$ oc-cluster ssh
+Going into the Origin Container
+[root@moby origin]# pwd
+/var/lib/origin
+----
+
+I'm done, let's get rid of this cluster:
+
+----
+$ oc-cluster destroy
+Are you sure you want to destroy cluster with profile <example> (y/n)? y
+Removing profile example
+Bringing the cluster down
+
+Removing /Users/jmorales/.oc/profiles/example
+----
+
+=== How this works?
+For the profiles to work, by default a subdirectories will be created in *$HOME/.oc/profiles* with the profile name. A file called *$HOME/.oc/active_profile*
+will hold also the name of the active profile, if there is a cluster up. Removing the cluster will remove the subdirectory holding all
+the profile data.
+
+We're using --host-data-config and --host-data-dir to retain the configuration of the cluster, as we understand this is basic for daily
+use of the tool. And we use --keep-config to retain this information.
+
+We're also binding the cluster to 127.0.0.1 as this is the way to make the cluster secure, and reproducible, as ip changes when you move from network
+to network, and since otherwise, anyone could just log into your running cluster if you had a cluster up, since it's using AnyPasswd identity provider.
+
+We also do 2 really convenient things for developers:
+
+* We create an *admin/admin* user that will be a *cluster-admin*, so you can login as admin from the web console
+* We add the *sudoer* role to *system:authenticated* so that any user can do impersonate as *cluster-admin* and there's no need to change user profiles
+
+
+== Convenience methods for working with persistent volumes
+As probably any user will need to work with persistent services, we have added 2 convenience methods for working with volumes. One for cluster-specific
+volumes, and another for shared volumes (similating NFS server behaviors).
+
+* oc-cluster create-volume volumeName [size|10Gi] [path|/Users/jmorales/.oc/profiles/<profile>/volumes/<volumeName>]
+* oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|/Users/jmorales/.oc/volumes/<volumeName>]
+
+=== oc-cluster create-volume
+This command will create a volume in the cluster's profile. That means that if the cluster is removed, the volume and the data stored in the volume
+will be removed as well. This will create a PV of type hostPath, with the specified size (or 10Gi by default), on the specified path (or the default for the profile)
+and a Retain policy for the data.
+
+=== oc-cluster create-shared-volume
+This command will create a volume in a shared location. That means that every cluster will have access to the data, and the data will not be removed if the cluster is
+removed. For the applications to be able to use this data, the created PV will be prebound to a specific project/namespace, with the name same name for the volume as for the claim.
+This will create a PV of type hostPath, with the specified size (or 10Gi by default), on the specified path (or the default for the profile). 
+With this second mechanism, we can, as an example, share the storage for our nexus deployment between all our clusters, and use nexus for java dependency management in a very
+convenient way.
+
+= Conenience methods for adding commons software to your cluster (This will be rewritten to be a plugin like mechanism)
+Right now, as this tool is created to boost my productivity (and the one of my colleagues), we have some additional methods (that we will convert into plugins) to
+deploy commons stuff we use in most of our clusters. In this way, we have a method to deploy nexus in a project called ci, and soon we will have one for gitlab, workshops, etc...
+
+----
+$ oc-deploy nexus
+Created project ci
+persistentvolume "nexus-data" created
+Volume created in /Users/jmorales/.oc/volumes/nexus-data
+service "nexus" created
+route "nexus" created
+deploymentconfig "nexus" created
+persistentvolumeclaim "nexus-data" created
+Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters
+----
+
+== Prerequisites
+If you can run *oc cluster up* you can run this tool. This works anywhere that *oc cluster up* runs, so any limitation really will be more a *oc cluster* limitation
+than this tool's.
+
+== Contributing
+Pull Request, and issues to make the tool are welcome. Don't just for it, but contribute back with your use cases. Once we have the plugin mechanism, this will be easier to do.
+Also, we would love all this use cases to be in ôc cluster* but until that doesn't happen, we will keep using and maintaining this tool.
+
+*This work is done by the OpenShift Evangelist team*

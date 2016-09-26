@@ -140,6 +140,8 @@ function deploy-nexus {
      oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
      oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
      echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters" 
+  else
+     echo "There's no cluster running"
   fi
 }
 
