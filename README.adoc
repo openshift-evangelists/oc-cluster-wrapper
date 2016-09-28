@@ -80,7 +80,7 @@ Now, let's work with the cluster:
 
 ----
 $ oc new-project example
-$ oc deploy wildfly~http://github.com/jorgemoralespou/sample-java-app.git
+$ oc new-app wildfly~https://github.com/OpenShiftDemos/os-sample-java-web.git
 ----
 
 I'm gone for a while, I need to know if my cluster is running:
@@ -164,7 +164,7 @@ Right now, as this tool is created to boost my productivity (and the one of my c
 deploy commons stuff we use in most of our clusters. In this way, we have a method to deploy nexus in a project called ci, and soon we will have one for gitlab, workshops, etc...
 
 ----
-$ oc-deploy nexus
+$ oc-cluster deploy-nexus
 Created project ci
 persistentvolume "nexus-data" created
 Volume created in /Users/jmorales/.oc/volumes/nexus-data
