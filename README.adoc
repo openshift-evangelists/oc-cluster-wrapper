@@ -175,6 +175,16 @@ persistentvolumeclaim "nexus-data" created
 Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters
 ----
 
+== Bind to a reproducible IP
+In systems like linux or mac, you can create an link-local interface, with an static ip, that you can reuse in any place you go. There's a system environment variable
+that you can define to use this ip to bind the cluster to. Otherwise it will default to 127.0.0.1
+
+Example: 
+
+----
+export OC_CLUSTER_BIND_IP=11.2.2.2
+----
+
 == Prerequisites
 If you can run *oc cluster up* you can run this tool. This works anywhere that *oc cluster up* runs, so any limitation really will be more a *oc cluster* limitation
 than this tool's.

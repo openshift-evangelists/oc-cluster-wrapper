@@ -1,5 +1,7 @@
 #!/bin/bash
 
+OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
+OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX}
 OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_CACHE_DIR=${OPENSHIFT_CACHE:-/var/lib/origin}
 
@@ -36,14 +38,16 @@ function up {
   # Create the profile markfile
   echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
-  echo "oc cluster up --public-hostname 127.0.0.1 \
+  echo "oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
+                --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
                 --use-existing-config \
                 $@"
-  oc cluster up --public-hostname 127.0.0.1 \
+  oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
+                --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
                 --use-existing-config \
                 "$@"
   
@@ -102,6 +106,12 @@ function destroy {
     exit 1
   fi
   [ "$_profile" == "" ] && _profile=$_active_profile
+
+  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ]
+  then
+    echo "There is no profile named $_profile"
+    exit 1
+  fi
 
   if [ "$_profile" != "" ]
   then
