@@ -7,7 +7,7 @@ OPENSHIFT_CACHE_DIR=${OPENSHIFT_CACHE:-/var/lib/origin}
 
 function up {
   local _profile="$1"
-
+  
   # Test that there is not a running cluster already
   status -s
   _status=$?
@@ -25,40 +25,60 @@ function up {
      shift # Remove profile name
   fi
 
-  # This is where oc cluster stores it's data
-  local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/data
-  local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/config
-  local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/volumes
+  # TODO: If the cluster is already created, do not provision stuff
+  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ] || [ ! -e "$OPENSHIFT_HOME_DIR/profiles/$_profile/run" ] 
+  then 
+    echo "[INFO] Running a new cluster"
+    # This is where oc cluster stores it's data
+    local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/data
+    local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/config
+    local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/volumes
 
-  mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
-  mkdir -p $OPENSHIFT_HOST_DATA_DIR
-  mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
+    mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
+    mkdir -p $OPENSHIFT_HOST_DATA_DIR
+    mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
 
-
-  # Create the profile markfile
-  echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
-
-  echo "oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
+    echo "oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
                 --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
                 --use-existing-config \
-                $@"
-  oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
+                $@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
+
+    echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
+    
+    oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
                 --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
                 --use-existing-config \
                 "$@"
-  
-  #Add developer as sudoer
-  oc adm policy add-cluster-role-to-group sudoer system:authenticated \
-         --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
-         --context="default/127-0-0-1:8443/system:admin"
+    
+    _status=$?
+    if [ $_status -eq 0 ]
+    then
+      # Create the profile markfile
+      echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
-  echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
-  # Create user admin that can log into the console
-  oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
+      echo "[INFO] Cluster created succesfully"
+      #Add developer as sudoer
+      oc adm policy add-cluster-role-to-group sudoer system:authenticated \
+           --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
+           --context="default/127-0-0-1:8443/system:admin"
+
+      echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
+      # Create user admin that can log into the console
+      oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
+    else
+      echo "[ERROR] There's been an error creating the cluster, the profile will be removed"
+      rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
+    fi
+  else
+    echo "[INFO] Running a previously created cluster"
+    # Just start the cluster 
+    echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
+    . $OPENSHIFT_HOME_DIR/profiles/$_profile/run "$@"
+  fi
 }
 
 function down {
