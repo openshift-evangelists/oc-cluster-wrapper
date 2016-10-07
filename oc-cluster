@@ -38,10 +38,10 @@ function up {
     mkdir -p $OPENSHIFT_HOST_DATA_DIR
     mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
 
-    echo "oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
-                --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
-                --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
-                --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
+    echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
+                --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
+                --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
+                --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
                 --use-existing-config \
                 $@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
 
