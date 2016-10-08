@@ -93,39 +93,23 @@ function status {
 # If the cluster is up, it will bring it down and destroy active_profile
 # Otherwise will ask for profile
 function destroy {
-  local _profile=$1
-  local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
+	local _active_profile=$(cat $OPENSHIFT_HOME_DIR/active_profile 2> /dev/null)
+  local _profile=${1:-$_active_profile}
 
-  if [ $# -lt 1 ] && [ "${_active_profile}" == "" ]
-  then
-    echo "You need to specify a profile, or have a running cluster"
-    exit 1
-  fi
-  [ "$_profile" == "" ] && _profile=$_active_profile
+  [[ $_profile == "" ]] && error_exit echo "You need to specify a profile, or have a running cluster"
 
-  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ]
-  then
-    echo "There is no profile named $_profile"
-    exit 1
-  fi
+  [[ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ]] && error_exit "There is no profile named $_profile"
 
-  if [ "$_profile" != "" ]
-  then
-     read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
-     echo    # move to a new line
-     if [[ $REPLY =~ ^[Yy]$ ]]
-     then
-        # do dangerous stuff
-        echo "Removing profile $_profile"
-        if [ "$_active_profile" == "$_profile" ]
-        then
-           down
-        fi
-        echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
-        rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
-        # TODO: Remove the images
-     fi
-  fi
+  read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
+  echo    # move to a new line
+  [[ $REPLY =~ ^[Yy]$ ]] || return
+  # do dangerous stuff
+  echo "Removing profile $_profile"
+  [[ "$_active_profile" == "$_profile" ]] && down
+
+  echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
+  rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
+  # TODO: Remove the images
 }
 
 function list {
