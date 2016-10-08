@@ -9,13 +9,7 @@ function up {
   local _profile="$1"
 
   # Test that there is not a running cluster already
-  status -s
-  _status=$?
-  if [ $_status -ne 0 ]
-  then
-     echo "There is a cluster already running. You can not run 2 cluster at the same time"
-     exit 1
-  fi
+  status &> /dev/null && error_exit "There is a cluster already running. You can not run 2 cluster at the same time"
 
   if [ "$_profile" == "" ] || [[ $_profile == -* ]]
   then
@@ -54,64 +48,49 @@ function up {
                 --use-existing-config \
                 "$@"
 
-    _status=$?
-    if [ $_status -eq 0 ]
-    then
-      # Create the profile markfile
-      echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
+    status &> /dev/null  || cleanupClusterAndExit $__profile
+    # Create the profile markfile
+    echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
-      echo "[INFO] Cluster created succesfully"
-      #Add developer as sudoer
-      oc adm policy add-cluster-role-to-group sudoer system:authenticated \
-           --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
-           --context="default/127-0-0-1:8443/system:admin"
+    echo "[INFO] Cluster created succesfully"
+    #Add developer as sudoer
+    oc adm policy add-cluster-role-to-group sudoer system:authenticated \
+        --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
+        --context="default/127-0-0-1:8443/system:admin"
 
-      echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
-      # Create user admin that can log into the console
-      oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
-    else
-      echo "[ERROR] There's been an error creating the cluster, the profile will be removed"
-      rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
-    fi
+    echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
+# Create user admin that can log into the console
+    oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
   else
     echo "[INFO] Running a previously created cluster"
     # Just start the cluster
     echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
     . $OPENSHIFT_HOME_DIR/profiles/$_profile/run "$@"
+    status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
+    # Create the profile markfile
+    echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
   fi
 }
 
+function cleanupClusterAndExit() {
+  rm -rf $OPENSHIFT_HOME_DIR/profiles/$1
+  error_exit "[ERROR] There's been an error creating the cluster, the profile will be removed"
+}
+
 function down {
-  status -s
-  local _status=$?
-  if [ $_status -ne 0 ]
-  then
-    echo "Bringing the cluster down"
-    oc cluster down
-    rm -f $OPENSHIFT_HOME_DIR/active_profile
-  fi
+  status &> /dev/null || return
+  echo "Bringing the cluster down"
+  oc cluster down
+  rm -f $OPENSHIFT_HOME_DIR/active_profile
 }
 
 #
 # Args:
 #  $1: [-s] silent
 function status {
-  local _silent=$1
-
-  if [[ "$(docker ps -f name=origin -q)" == "" ]]
-  then
-     if [ "$_silent" != "-s"  ]
-     then
-        echo "no cluster running"
-     fi
-     return 0
-  else
-     if [ "$_silent" != "-s"  ]
-     then
-        echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
-     fi
-     return 1
-  fi
+  [[ "$(docker ps -f name=origin -q)" == "" ]] && echo "no cluster running" && return 1
+  echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
+  return 0
 }
 
 # If the cluster is up, it will bring it down and destroy active_profile
@@ -161,19 +140,18 @@ function list {
   done
 }
 
+function error_exit() {
+  echo -e "$@"
+	exit 1
+}
+
 function deploy-nexus {
-  status -s
-  local _status=$?
-  if [ $_status -ne 0 ]
-  then
-    oc adm new-project ci --as=system:admin
-    create-shared-volume 'ci/nexus-data'
-    oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
-    oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
-    echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters"
-  else
-    echo "There's no cluster running"
-  fi
+  status &> /dev/null  || error_exit "There's no cluster running"
+  oc adm new-project ci --as=system:admin
+  create-shared-volume 'ci/nexus-data'
+  oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+  echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters"
 }
 
 function ssh {
@@ -343,5 +321,3 @@ then
 else
    help
 fi
-
-
