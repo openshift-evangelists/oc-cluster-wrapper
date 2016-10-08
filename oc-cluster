@@ -7,7 +7,7 @@ OPENSHIFT_CACHE_DIR=${OPENSHIFT_CACHE:-/var/lib/origin}
 
 function up {
   local _profile="$1"
-  
+
   # Test that there is not a running cluster already
   status -s
   _status=$?
@@ -15,19 +15,19 @@ function up {
   then
      echo "There is a cluster already running. You can not run 2 cluster at the same time"
      exit 1
-  fi  
+  fi
 
   if [ "$_profile" == "" ] || [[ $_profile == -* ]]
   then
      echo "Using default profile"
-     _profile="default"
+    _profile="default"
   else
-     shift # Remove profile name
+    shift # Remove profile name
   fi
 
   # TODO: If the cluster is already created, do not provision stuff
-  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ] || [ ! -e "$OPENSHIFT_HOME_DIR/profiles/$_profile/run" ] 
-  then 
+  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ] || [ ! -e "$OPENSHIFT_HOME_DIR/profiles/$_profile/run" ]
+  then
     echo "[INFO] Running a new cluster"
     # This is where oc cluster stores it's data
     local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/data
@@ -46,14 +46,14 @@ function up {
                 $@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
 
     echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
-    
+
     oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
                 --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
                 --use-existing-config \
                 "$@"
-    
+
     _status=$?
     if [ $_status -eq 0 ]
     then
@@ -75,7 +75,7 @@ function up {
     fi
   else
     echo "[INFO] Running a previously created cluster"
-    # Just start the cluster 
+    # Just start the cluster
     echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
     . $OPENSHIFT_HOME_DIR/profiles/$_profile/run "$@"
   fi
@@ -85,7 +85,7 @@ function down {
   status -s
   local _status=$?
   if [ $_status -ne 0 ]
-  then  
+  then
     echo "Bringing the cluster down"
     oc cluster down
     rm -f $OPENSHIFT_HOME_DIR/active_profile
@@ -115,7 +115,7 @@ function status {
 }
 
 # If the cluster is up, it will bring it down and destroy active_profile
-# Otherwise will ask for profile 
+# Otherwise will ask for profile
 function destroy {
   local _profile=$1
   local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
@@ -154,9 +154,10 @@ function destroy {
 
 function list {
   echo "Profiles:"
+  [[ ! -d "$OPENSHIFT_HOME_DIR/profiles/" ]] && echo "" && exit 1
   for i in `ls $OPENSHIFT_HOME_DIR/profiles`
   do
-     echo "- $i"
+    echo "- $i"
   done
 }
 
@@ -165,13 +166,13 @@ function deploy-nexus {
   local _status=$?
   if [ $_status -ne 0 ]
   then
-     oc adm new-project ci --as=system:admin
-     create-shared-volume 'ci/nexus-data'
-     oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
-     oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
-     echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters" 
+    oc adm new-project ci --as=system:admin
+    create-shared-volume 'ci/nexus-data'
+    oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
+    oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+    echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters"
   else
-     echo "There's no cluster running"
+    echo "There's no cluster running"
   fi
 }
 
@@ -185,21 +186,15 @@ function console {
 }
 
 function create-volume {
-  local __volume=$1
-  local __size='10Gi'
-  local __path=''
-
   [ $# -lt 1 ] && echo "volumename is required" && exit 1
+  local __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
+  local __volume=$1
+  local __size=${2:-"10Gi"}
+  local __path=${3:-$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}}
 
-  __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
-  if [ ! -z "$2" ]; then
-    __size=$2
-  fi
-  if [ -z "$3" ]; then
-    __path=$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}
-  else
-    __path=$3
-  fi
+  [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
+
+  oc get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
 
   mkdir -p $__path
 
@@ -227,7 +222,7 @@ echo "Volume created in ${__path}"
 
 #
 # Args:
-#  $1: volumeName. Format (project/volumeName). A prebounded claim will be created to bound to a claim with Name volume in project 
+#  $1: volumeName. Format (project/volumeName). A prebounded claim will be created to bound to a claim with Name volume in project
 #  $2: size (10Gi, 512Mi) (optional)
 #  $3: Path for the volume (optional)
 function create-shared-volume {
@@ -236,24 +231,17 @@ function create-shared-volume {
   local __projectclaim=$1
   arrIN=(${__projectclaim//\// })
   [ ${#arrIN[@]} -lt 2 ] && echo "volumename format is not valid.  This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
-  
+
   local __volume=${arrIN[1]}
   local __project=${arrIN[0]}
-  local __size='10Gi'
-  local __path=''
+  local __size=${2:-"10Gi"}
+  local __path=${3:-$OPENSHIFT_HOME_DIR/volumes/${__volume}}
 
-  if [ ! -z "$2" ]; then
-    __size=$2
-  fi
-  if [ -z "$3" ]; then
-    __path=$OPENSHIFT_HOME_DIR/volumes/${__volume}
-  else
-    __path=$3
-  fi
+  [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
 
   mkdir -p $__path
-  
-  # TODO: Check if volume exists
+
+  oc get persistentvolume ${__volume} -n $__project --as=system:admin &>/dev/null && error_exit "The PersistentVolume already exits"
 
 cat <<-EOF > /tmp/pv.yaml
 apiVersion: v1
@@ -344,12 +332,12 @@ then
         console "$@"
         ;;
       -h|help)
-        help        
+        help
         ;;
       *)
         # unknown option
         echo "Unknown option. Show help"
-        help        
+        help
         ;;
    esac
 else
