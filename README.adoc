@@ -193,16 +193,16 @@ NOTE: This tool assumes you run *oc cluster* with Docker native and not docker-m
 == ROADMAP
 Find here a list of things we would like to include in the tool. These will be tracked via issues to allow for feature discussion (https://github.com/openshift-evangelists/oc-cluster-wrapper/labels/enhancement):
 
-* link:./issues/26[RFE #26] Allow for login user and keep a KUBECONFIG in the profile. This is a feature that will allow to have multiple profiles using same clsuter ip, that will probably have different certificates, and different users. With a new "oc-cluster login" you'll be able to login with current certificates created on first boot.
-* link:./issues/9[RFE #9] Allow to execute upstream images (--image=registry.access.redhat.com/openshift3/ose) 
-* link:./issues/22[RFE #22] Use upstream command "status". https://github.com/openshift/origin/pull/11171
-* link:./issues/21[RFE #21] Allow for profile snapshot/restore. This way you can create a cluster, provision it, use it, screw it, and restore to a safe point. There will be potential image conflicts, but will be assumable.
-* link:./issues/23[RFE #23] Ability to enable technology-preview features (like pipelines)
-* link:./issues/20[RFE #20] Make additional commands via "plugins". Additional scripts in the same dir as cluster-up will provide additional provisioning capabilities. Installing nexus, gitlab, imagestreams, tech-preview,...
-* link:./issues/19[RFE #19] Allow to use htpasswd identity provider and create users
-* link:./issues/17[RFE #17] Provide basic bash completion
-* link:./issues/25[RFE #25] Add support for TimeZone
-* link:./issues/24[RFE #24] Add support for proxies
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/26[RFE #26] Allow for login user and keep a KUBECONFIG in the profile. This is a feature that will allow to have multiple profiles using same clsuter ip, that will probably have different certificates, and different users. With a new "oc-cluster login" you'll be able to login with current certificates created on first boot.
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/9[RFE #9] Allow to execute upstream images (--image=registry.access.redhat.com/openshift3/ose) 
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/22[RFE #22] Use upstream command "status". https://github.com/openshift/origin/pull/11171
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/21[RFE #21] Allow for profile snapshot/restore. This way you can create a cluster, provision it, use it, screw it, and restore to a safe point. There will be potential image conflicts, but will be assumable.
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/23[RFE #23] Ability to enable technology-preview features (like pipelines)
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/20[RFE #20] Make additional commands via "plugins". Additional scripts in the same dir as cluster-up will provide additional provisioning capabilities. Installing nexus, gitlab, imagestreams, tech-preview,...
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/19[RFE #19] Allow to use htpasswd identity provider and create users
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/17[RFE #17] Provide basic bash completion
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/25[RFE #25] Add support for TimeZone
+* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/24[RFE #24] Add support for proxies
 
 
 Any idea you might have, share it with us.
