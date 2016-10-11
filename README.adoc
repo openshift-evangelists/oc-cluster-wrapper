@@ -200,7 +200,7 @@ Find here a list of things we would like to include in the tool. These will be t
 * link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/23[RFE #23] Ability to enable technology-preview features (like pipelines)
 * link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/20[RFE #20] Make additional commands via "plugins". Additional scripts in the same dir as cluster-up will provide additional provisioning capabilities. Installing nexus, gitlab, imagestreams, tech-preview,...
 * link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/19[RFE #19] Allow to use htpasswd identity provider and create users
-* link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/17[RFE #17] Provide basic bash completion
+* [line-through]#link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/17[RFE #17] Provide basic bash completion#
 * link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/25[RFE #25] Add support for TimeZone
 * link:https://github.com/openshift-evangelists/oc-cluster-wrapper/issues/24[RFE #24] Add support for proxies
 
