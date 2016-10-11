@@ -142,7 +142,7 @@ function list {
 
 function error_exit() {
   echo -e "$@"
-	exit 1
+  exit 1
 }
 
 function deploy-nexus {
@@ -248,6 +248,43 @@ rm /tmp/pv.yaml
 echo "Volume created in ${__path}"
 }
 
+function completion() {
+  local shell=$1
+  [[ $shell != "bash" ]] && echo "Only bash supported for now" && return
+cat << "EOF"
+OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
+_oc_cluster_completion() {
+  local cur prev command commands profiles cluster_args
+  COMPREPLY=()   # Array variable storing the possible completions.
+  cur=${COMP_WORDS[COMP_CWORD]}
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  command="${COMP_WORDS[1]}"
+  commands="up down destroy list status ssh console create-volume create-shared-volume deploy-nexus"
+
+  profiles=$(ls -d $OPENSHIFT_HOME_DIR/profiles/*/ | xargs -L1 basename)
+
+  boolean_args="--create-machine= --forward-ports= --metrics= --skip-registry-check= --use-existing-config="
+  cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= $boolean_args"
+  #todo complete these args more
+  [[ "$command" == "up" && $COMP_CWORD -gt 2 ]] && \
+    COMPREPLY=( $( compgen -W "$cluster_args" -- $cur ) ) && \
+    return 0
+
+  if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
+    COMPREPLY=( $( compgen -W "$commands" -- $cur ) )
+    return 0
+  fi
+
+  case "$prev" in
+    up|destroy)
+      COMPREPLY=( $( compgen -W "$profiles" -- $cur ) )
+      ;;
+  esac
+}
+complete -o nospace -F _oc_cluster_completion oc-cluster
+EOF
+}
+
 function help {
         echo "Valid commands:"
         echo "oc-cluster up [profile] [OPTIONS]"
@@ -260,6 +297,7 @@ function help {
         echo "oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
         echo "oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
         echo "oc-cluster deploy-nexus"
+        echo "oc-cluster completion bash"
 }
 
 # Use -gt 1 to consume two arguments per pass in the loop (e.g. each
@@ -308,6 +346,10 @@ then
       console)
         shift
         console "$@"
+        ;;
+      completion)
+        shift
+        completion "$@"
         ;;
       -h|help)
         help
