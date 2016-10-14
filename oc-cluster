@@ -37,7 +37,7 @@ function up {
                 --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
                 --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
                 --use-existing-config \
-                $@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
+                $@ \$@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
 
     echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
 
@@ -65,7 +65,7 @@ function up {
     echo "[INFO] Running a previously created cluster"
     # Just start the cluster
     echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
-    . $OPENSHIFT_HOME_DIR/profiles/$_profile/run "$@"
+    . $OPENSHIFT_HOME_DIR/profiles/$_profile/run
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
