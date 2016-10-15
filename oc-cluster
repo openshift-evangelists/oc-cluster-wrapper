@@ -19,57 +19,54 @@ function up {
     shift # Remove profile name
   fi
 
+	local _profile_dir="$OPENSHIFT_HOME_DIR/profiles/$_profile"
   # TODO: If the cluster is already created, do not provision stuff
-  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ] || [ ! -e "$OPENSHIFT_HOME_DIR/profiles/$_profile/run" ]
-  then
-    echo "[INFO] Running a new cluster"
-    # This is where oc cluster stores it's data
-    local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/data
-    local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/config
-    local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/volumes
 
-    mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
-    mkdir -p $OPENSHIFT_HOST_DATA_DIR
-    mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
+  [[ -d "$_profile_dir" && -f "$_profile_dir/run" ]] && startPreviousCreatedCluster $_profile && exit 0
 
-    echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
-                --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
-                --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
-                --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
-                --use-existing-config \
-                $@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
+  echo "[INFO] Running a new cluster"
+  # This is where oc cluster stores it's data
+  local _data_dir=$_profile_dir/data
+  local _config_dir=$_profile_dir/config
 
-    echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
+  mkdir -p $_config_dir $_data_dir $_profile_dir/volume
 
-    oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
-                --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
-                --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
-                --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
-                --use-existing-config \
-                "$@"
+  tee $_profile_dir/run <<EOF
+oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
+--host-data-dir '$_data_dir' \
+--host-config-dir '$_config_dir' \
+--routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
+--use-existing-config \
+$@ \$@
+EOF
+  #need to shift all args away if not the source will have them double
+  shift $#
+  . $_profile_dir/run
 
-    status &> /dev/null  || cleanupClusterAndExit $__profile
-    # Create the profile markfile
-    echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
+  status &> /dev/null  || cleanupClusterAndExit $__profile
+  # Create the profile markfile
+  echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
-    echo "[INFO] Cluster created succesfully"
-    #Add developer as sudoer
-    oc adm policy add-cluster-role-to-group sudoer system:authenticated \
-        --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
-        --context="default/127-0-0-1:8443/system:admin"
+  echo "[INFO] Cluster created succesfully"
+  #Add developer as sudoer
+  oc adm policy add-cluster-role-to-group sudoer system:authenticated \
+      --config="$_config_dir/master/admin.kubeconfig" \
+      --context="default/127-0-0-1:8443/system:admin"
 
-    echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
-# Create user admin that can log into the console
-    oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
-  else
-    echo "[INFO] Running a previously created cluster"
-    # Just start the cluster
-    echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
-    . $OPENSHIFT_HOME_DIR/profiles/$_profile/run "$@"
-    status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
-    # Create the profile markfile
-    echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
-  fi
+  echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
+  # Create user admin that can log into the console
+  oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
+}
+
+function startPreviousCreatedCluster() {
+ local _profile=$1
+ local _profile_dir="$OPENSHIFT_HOME_DIR/profiles/$_profile"
+ echo "[INFO] Running a previously created cluster"
+ cat $_profile_dir/run
+ . $_profile_dir/run
+ status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
+ # Create the profile markfile
+ echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 }
 
 function cleanupClusterAndExit() {
@@ -96,39 +93,23 @@ function status {
 # If the cluster is up, it will bring it down and destroy active_profile
 # Otherwise will ask for profile
 function destroy {
-  local _profile=$1
-  local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
+	local _active_profile=$(cat $OPENSHIFT_HOME_DIR/active_profile 2> /dev/null)
+  local _profile=${1:-$_active_profile}
 
-  if [ $# -lt 1 ] && [ "${_active_profile}" == "" ]
-  then
-    echo "You need to specify a profile, or have a running cluster"
-    exit 1
-  fi
-  [ "$_profile" == "" ] && _profile=$_active_profile
+  [[ $_profile == "" ]] && error_exit echo "You need to specify a profile, or have a running cluster"
 
-  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ]
-  then
-    echo "There is no profile named $_profile"
-    exit 1
-  fi
+  [[ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ]] && error_exit "There is no profile named $_profile"
 
-  if [ "$_profile" != "" ]
-  then
-     read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
-     echo    # move to a new line
-     if [[ $REPLY =~ ^[Yy]$ ]]
-     then
-        # do dangerous stuff
-        echo "Removing profile $_profile"
-        if [ "$_active_profile" == "$_profile" ]
-        then
-           down
-        fi
-        echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
-        rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
-        # TODO: Remove the images
-     fi
-  fi
+  read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
+  echo    # move to a new line
+  [[ $REPLY =~ ^[Yy]$ ]] || return
+  # do dangerous stuff
+  echo "Removing profile $_profile"
+  [[ "$_active_profile" == "$_profile" ]] && down
+
+  echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
+  rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
+  # TODO: Remove the images
 }
 
 function list {
