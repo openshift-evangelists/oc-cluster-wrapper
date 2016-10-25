@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+#
+
+function user.help {
+  echo "  oc-cluster --user (Install htpasswd user management)"
+  echo "  oc-cluster user-add <username> [<role>]"
+  echo "  oc-cluster user-remove <username>"
+  echo "  oc-cluster user-login <username>"
+}
+
+function user.execute {
+  # Install htpasswd in the container
+  # Create the 2 basic users, developer and admin
+  # TODO: If users.htpasswd already exists do not create with -c
+  execInTheContainer " yum install -y httpd-tools &&\
+  htpasswd -cb $(internalMasterConfigDir)/users.htpasswd admin admin && \
+  htpasswd -b  $(internalMasterConfigDir)/users.htpasswd developer developer"
+  configPatch "{\\\"oauthConfig\\\": {\\\"identityProviders\\\": [ \
+  { \
+    \\\"challenge\\\": true, \
+    \\\"login\\\": true, \
+    \\\"mappingMethod\\\": \\\"claim\\\", \
+    \\\"name\\\": \\\"htpassword\\\", \
+    \\\"provider\\\": \
+      { \
+        \\\"apiVersion\\\": \\\"v1\\\", \
+        \\\"kind\\\": \\\"HTPasswdPasswordIdentityProvider\\\", \
+        \\\"file\\\": \\\"$(internalMasterConfigDir)/users.htpasswd\\\" \
+     } \
+  } \
+  ]}}"
+  # TODO: Only markRestart if output of change was successful
+  markRestart
+}
+
+function user-add {
+  echo "user-add"
+  # after adding a user, restart
+
+}
+
+function user-remove {
+  echo "user-remove"
+}
+
+function user-login {
+  echo "user-login"
+
+}

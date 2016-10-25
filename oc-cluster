@@ -1,9 +1,119 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
 OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX}
 OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_CACHE_DIR=${OPENSHIFT_CACHE:-/var/lib/origin}
+PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
+
+
+##################
+# Add common functions
+#  markRestart: Marks that a restart will be required after the provisioning
+#  forceRestart: Will execute a restart and unmark a required restart
+#  restartIfRequire
+#
+__RESTART=0
+
+
+function markRestart {
+   # Just set a restart flag
+   __RESTART=1
+}
+
+function forceRestart {
+   echo "Restarting openshift"
+   docker stop origin && docker start origin
+   # TODO: Check that restarted succesfully
+   # Clear restart flag
+   __RESTART=0
+}
+
+function activeProfile {
+   local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile)
+   echo "$_active_profile"
+}
+
+function profileDir {
+   local _active_profile=$(activeProfile)
+   if [ "$_active_profile" != "" ]
+   then
+      echo "$OPENSHIFT_HOME_DIR/profiles/$_active_profile"
+   else
+      echo ""
+   fi
+}
+
+function masterConfigDir {
+   local _active_profile=$(activeProfile)
+   if [ "$_active_profile" != "" ]
+   then
+      echo "$OPENSHIFT_HOME_DIR/profiles/$_active_profile/config/master"
+   else
+      echo ""
+   fi
+}
+
+function internalProfileDir {
+   echo "/var/lib/origin/openshift.local.config"
+}
+
+
+function internalMasterConfigDir {
+   echo "/var/lib/origin/openshift.local.config/master"
+}
+
+function isClusterRunning {
+   set -x
+   [[ "$(docker ps -f name=origin -q)" == "" ]] && return 1
+   return 0
+}
+
+function configPatch {
+   echo "Applying this path to the config: [$@]"
+
+   # TODO: Make temp file random
+   cat <<-EOF > /tmp/patch_00001
+   /usr/bin/cp $(internalMasterConfigDir)/master-config.yaml $(internalMasterConfigDir)/master-config.orig.yaml
+
+   /usr/bin/openshift ex config patch $(internalMasterConfigDir)/master-config.orig.yaml --patch="$@" > $(internalMasterConfigDir)/master-config.yaml
+
+   # TODO: Verify non empty contents or revert saved file
+   if [ ! -s $(internalMasterConfigDir)/master-config.yaml ]; then
+      /usr/bin/cp $(internalMasterConfigDir)/master-config.orig.yaml $(internalMasterConfigDir)/master-config.yaml
+      echo "No change applied"
+   else
+      echo "Configuration change applied"
+   fi
+EOF
+   chmod 755 /tmp/patch_00001
+
+   docker cp /tmp/patch_00001 origin:/tmp/patch_00001
+   docker exec -t origin /usr/bin/bash /tmp/patch_00001
+   rm /tmp/patch_00001
+}
+
+function execInTheContainer {
+   echo "Executing this in the container: [$@]"
+
+   cat <<-EOF > /tmp/patch_00002
+   $@
+EOF
+   chmod 755 /tmp/patch_00002
+
+   docker cp /tmp/patch_00002 origin:/tmp/patch_00002
+   docker exec -t origin /usr/bin/bash /tmp/patch_00002
+   # rm /tmp/patch_00001
+}
+
+##################
+#
+#
+#
+#
+
 
 function up {
   local _profile="$1"
@@ -287,18 +397,33 @@ EOF
 
 function help {
         echo "Valid commands:"
-        echo "oc-cluster up [profile] [OPTIONS]"
-        echo "oc-cluster down"
-        echo "oc-cluster destroy [profile]"
-        echo "oc-cluster list"
-        echo "oc-cluster status"
-        echo "oc-cluster ssh"
-        echo "oc-cluster console"
-        echo "oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
-        echo "oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
-        echo "oc-cluster deploy-nexus"
-        echo "oc-cluster completion bash"
+        echo "  oc-cluster up [profile] [OPTIONS]"
+        echo "  oc-cluster down"
+        echo "  oc-cluster destroy [profile]"
+        echo "  oc-cluster list"
+        echo "  oc-cluster status"
+        echo "  oc-cluster ssh"
+        echo "  oc-cluster console"
+        echo "  oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
+        echo "  oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
+        echo "  oc-cluster deploy-nexus"
+        echo "  oc-cluster completion bash"
+        [[ ! -d "$PLUGINS_DIR" ]] && echo "" && exit 1
+        for i in `ls $PLUGINS_DIR/*.plugin`
+        do
+          local _filename=$(basename "$i")
+          local _script=${_filename%.*}
+          ${_script}.help
+        done
 }
+
+#
+#
+#
+# Load the plugins
+for plugin in $DIR/plugins.d/*.plugin; do
+  source  $plugin
+done
 
 # Use -gt 1 to consume two arguments per pass in the loop (e.g. each
 # argument has a corresponding value to go with it).
@@ -351,15 +476,23 @@ then
         shift
         completion "$@"
         ;;
+      plugins-list)
+         plugins-list
+         ;;
       -h|help)
         help
         ;;
+     --*)
+         ${key:2}.execute
+         ;;
       *)
-        # unknown option
-        echo "Unknown option. Show help"
-        help
+        shift # past argument
+        $key "$@"
         ;;
    esac
 else
    help
 fi
+
+# After execution of a plugin, we need to know if a restart is required
+[ $__RESTART -eq 1 ] && forceRestart
