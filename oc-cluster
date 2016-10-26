@@ -5,7 +5,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
 OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX}
 OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
-OPENSHIFT_CACHE_DIR=${OPENSHIFT_CACHE:-/var/lib/origin}
+OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
 
 
@@ -25,7 +25,8 @@ function markRestart {
 
 function forceRestart {
    echo "Restarting openshift"
-   docker stop origin && docker start origin
+   docker stop origin &> /dev/null && docker start origin &> /dev/null
+   echo "Done"
    # TODO: Check that restarted succesfully
    # Clear restart flag
    __RESTART=0
@@ -40,7 +41,7 @@ function profileDir {
    local _active_profile=$(activeProfile)
    if [ "$_active_profile" != "" ]
    then
-      echo "$OPENSHIFT_HOME_DIR/profiles/$_active_profile"
+      echo "$OPENSHIFT_PROFILES_DIR/$_active_profile"
    else
       echo ""
    fi
@@ -50,7 +51,7 @@ function masterConfigDir {
    local _active_profile=$(activeProfile)
    if [ "$_active_profile" != "" ]
    then
-      echo "$OPENSHIFT_HOME_DIR/profiles/$_active_profile/config/master"
+      echo "$OPENSHIFT_PROFILES_DIR/$_active_profile/config/master"
    else
       echo ""
    fi
@@ -59,7 +60,6 @@ function masterConfigDir {
 function internalProfileDir {
    echo "/var/lib/origin/openshift.local.config"
 }
-
 
 function internalMasterConfigDir {
    echo "/var/lib/origin/openshift.local.config/master"
@@ -108,6 +108,11 @@ EOF
    # rm /tmp/patch_00001
 }
 
+function error_exit() {
+  echo -e "$@"
+  exit 1
+}
+
 ##################
 #
 #
@@ -130,26 +135,28 @@ function up {
   fi
 
   # TODO: If the cluster is already created, do not provision stuff
-  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ] || [ ! -e "$OPENSHIFT_HOME_DIR/profiles/$_profile/run" ]
+  if [ ! -d "$OPENSHIFT_PROFILES_DIR/$_profile" ] || [ ! -e "$OPENSHIFT_PROFILES_DIR/$_profile/run" ]
   then
     echo "[INFO] Running a new cluster"
     # This is where oc cluster stores it's data
-    local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/data
-    local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/config
-    local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_HOME_DIR/profiles/$_profile/volumes
+    local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/data
+    local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/config
+    local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/volumes
+    local OPENSHIFT_HOST_PLUGINS_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/plugins
 
     mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
     mkdir -p $OPENSHIFT_HOST_DATA_DIR
     mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
+    mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
 
     echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
                 --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
                 --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
                 --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
                 --use-existing-config \
-                $@" > $OPENSHIFT_HOME_DIR/profiles/$_profile/run
+                $@" > $OPENSHIFT_PROFILES_DIR/$_profile/run
 
-    echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
+    echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
 
     oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
@@ -169,13 +176,13 @@ function up {
         --context="default/127-0-0-1:8443/system:admin"
 
     echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
-# Create user admin that can log into the console
+    # Create user admin that can log into the console
     oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
   else
     echo "[INFO] Running a previously created cluster"
     # Just start the cluster
-    echo "$(<$OPENSHIFT_HOME_DIR/profiles/$_profile/run)"
-    . $OPENSHIFT_HOME_DIR/profiles/$_profile/run "$@"
+    echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run) $@"
+    . $OPENSHIFT_PROFILES_DIR/$_profile/run "$@"
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
@@ -183,7 +190,7 @@ function up {
 }
 
 function cleanupClusterAndExit() {
-  rm -rf $OPENSHIFT_HOME_DIR/profiles/$1
+  rm -rf $OPENSHIFT_PROFILES_DIR/$1
   error_exit "[ERROR] There's been an error creating the cluster, the profile will be removed"
 }
 
@@ -211,15 +218,13 @@ function destroy {
 
   if [ $# -lt 1 ] && [ "${_active_profile}" == "" ]
   then
-    echo "You need to specify a profile, or have a running cluster"
-    exit 1
+    error_exit "You need to specify a profile, or have a running cluster"
   fi
   [ "$_profile" == "" ] && _profile=$_active_profile
 
-  if [ ! -d "$OPENSHIFT_HOME_DIR/profiles/$_profile" ]
+  if [ ! -d "$OPENSHIFT_PROFILES_DIR/$_profile" ]
   then
-    echo "There is no profile named $_profile"
-    exit 1
+    error_exit "There is no profile named $_profile"
   fi
 
   if [ "$_profile" != "" ]
@@ -234,8 +239,8 @@ function destroy {
         then
            down
         fi
-        echo "Removing $OPENSHIFT_HOME_DIR/profiles/$_profile"
-        rm -rf $OPENSHIFT_HOME_DIR/profiles/$_profile
+        echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
+        rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
         # TODO: Remove the images
      fi
   fi
@@ -243,25 +248,11 @@ function destroy {
 
 function list {
   echo "Profiles:"
-  [[ ! -d "$OPENSHIFT_HOME_DIR/profiles/" ]] && echo "" && exit 1
-  for i in `ls $OPENSHIFT_HOME_DIR/profiles`
+  [[ ! -d "$OPENSHIFT_PROFILES_DIR/" ]] && error_exit "[ERROR] Missing profiles dir [$OPENSHIFT_PROFILES_DIR]"
+  for i in `ls $OPENSHIFT_PROFILES_DIR`
   do
     echo "- $i"
   done
-}
-
-function error_exit() {
-  echo -e "$@"
-  exit 1
-}
-
-function deploy-nexus {
-  status &> /dev/null  || error_exit "There's no cluster running"
-  oc adm new-project ci --as=system:admin
-  create-shared-volume 'ci/nexus-data'
-  oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
-  echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters"
 }
 
 function ssh {
@@ -273,90 +264,6 @@ function console {
   echo "https://127.0.0.1:8443/console"
 }
 
-function create-volume {
-  [ $# -lt 1 ] && echo "volumename is required" && exit 1
-  local __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
-  local __volume=$1
-  local __size=${2:-"10Gi"}
-  local __path=${3:-$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}}
-
-  [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
-
-  oc get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
-
-  mkdir -p $__path
-
-cat <<-EOF > /tmp/pv.yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: ${__volume}
-spec:
-  capacity:
-    storage: ${__size}
-  accessModes:
-    - ReadWriteOnce
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  hostPath:
-    path: ${__path}
-EOF
-
-oc create -f /tmp/pv.yaml --as=system:admin
-rm /tmp/pv.yaml
-
-echo "Volume created in ${__path}"
-}
-
-#
-# Args:
-#  $1: volumeName. Format (project/volumeName). A prebounded claim will be created to bound to a claim with Name volume in project
-#  $2: size (10Gi, 512Mi) (optional)
-#  $3: Path for the volume (optional)
-function create-shared-volume {
-  [ $# -lt 1 ] && echo "volumename is required. This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
-
-  local __projectclaim=$1
-  arrIN=(${__projectclaim//\// })
-  [ ${#arrIN[@]} -lt 2 ] && echo "volumename format is not valid.  This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
-
-  local __volume=${arrIN[1]}
-  local __project=${arrIN[0]}
-  local __size=${2:-"10Gi"}
-  local __path=${3:-$OPENSHIFT_HOME_DIR/volumes/${__volume}}
-
-  [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
-
-  mkdir -p $__path
-
-  oc get persistentvolume ${__volume} -n $__project --as=system:admin &>/dev/null && error_exit "The PersistentVolume already exits"
-
-cat <<-EOF > /tmp/pv.yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: ${__volume}
-spec:
-  capacity:
-    storage: ${__size}
-  accessModes:
-    - ReadWriteOnce
-    - ReadWriteMany
-  claimRef:
-    apiVersion: v1
-    kind: PersistentVolumeClaim
-    namespace: ${__project}
-    name: ${__volume}
-  persistentVolumeReclaimPolicy: Retain
-  hostPath:
-    path: ${__path}
-EOF
-
-oc create -f /tmp/pv.yaml --as=system:admin
-rm /tmp/pv.yaml
-
-echo "Volume created in ${__path}"
-}
 
 function completion() {
   local shell=$1
@@ -369,9 +276,9 @@ _oc_cluster_completion() {
   cur=${COMP_WORDS[COMP_CWORD]}
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   command="${COMP_WORDS[1]}"
-  commands="up down destroy list status ssh console create-volume create-shared-volume deploy-nexus"
+  commands="up down destroy list status ssh console plugin-list plugin-install plugin-uninstall"
 
-  profiles=$(ls -d $OPENSHIFT_HOME_DIR/profiles/*/ | xargs -L1 basename)
+  profiles=$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
 
   boolean_args="--create-machine= --forward-ports= --metrics= --skip-registry-check= --use-existing-config="
   cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= $boolean_args"
@@ -395,6 +302,53 @@ complete -o nospace -F _oc_cluster_completion oc-cluster
 EOF
 }
 
+#
+# Install plugin
+#
+function plugin-install {
+  local _plugin=$1
+  [ ! -e $PLUGINS_DIR/${_plugin}.local.plugin ] && error_exit "[ERROR] There's no plugin named [${_plugin}]"
+  # A plugin can only be installed on an active cluster
+  if [ "$(activeProfile)" != "" ]; then
+     echo "Install $_plugin"
+     # Make sure plugins dir exists (legacy)
+     mkdir -p $(profileDir)/plugins
+     # Symlink
+     ln -s $PLUGINS_DIR/${_plugin}.local.plugin $(profileDir)/plugins &> /dev/null
+     # Execute install
+     source $(profileDir)/plugins/${_plugin}.local.plugin
+     echo "========"
+     ${_plugin}.install
+     # TODO: Check that the plugin has exited with 0, else print an error and unlink
+     echo "========"
+     echo "Installed"
+  else
+    echo "[INFO] A plugin can not be installed if there's no active cluster"
+  fi
+}
+
+function plugin-uninstall {
+   echo "Not yet implemented"
+}
+
+function plugin-list {
+  # List the global plugins and then the local plugins, marking which ones are installed
+  [[ ! -d "$PLUGINS_DIR" ]] && error_exit error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
+  for i in `ls $PLUGINS_DIR/*.local.plugin`
+  do
+    local _filename=$(basename "$i")
+    local _script=${_filename%%.*}
+    echo "========"
+    echo "Plugin: ${_script}"
+    if [ "$(activeProfile)" != "" ]; then
+      [ -l $(profileDir)/plugins/${_filename} ] && echo "(Installed)"
+    fi
+    . ${i}
+    echo ""
+   done
+}
+
+
 function help {
         echo "Valid commands:"
         echo "  oc-cluster up [profile] [OPTIONS]"
@@ -404,26 +358,45 @@ function help {
         echo "  oc-cluster status"
         echo "  oc-cluster ssh"
         echo "  oc-cluster console"
-        echo "  oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
-        echo "  oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
-        echo "  oc-cluster deploy-nexus"
         echo "  oc-cluster completion bash"
-        [[ ! -d "$PLUGINS_DIR" ]] && echo "" && exit 1
-        for i in `ls $PLUGINS_DIR/*.plugin`
+
+        echo "  oc-cluster plugin-install <plugin>"
+        echo "  oc-cluster plugin-uninstall <plugin>"
+        echo "  oc-cluster plugin-list"
+        # Help for global plugins
+        [[ ! -d "$PLUGINS_DIR" ]] && error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
+        for i in $PLUGINS_DIR/*.global.plugin
         do
           local _filename=$(basename "$i")
-          local _script=${_filename%.*}
+          local _script=${_filename%%.*}
           ${_script}.help
         done
+        # Help for installed plugins in the active profile
+        if [ "$(activeProfile)" != "" ]; then
+           for i in $(profileDir)/plugins/*.local.plugin
+           do
+             local _filename=$(basename "$i")
+             local _script=${_filename%%.*}
+             ${_script}.help
+           done
+        fi
 }
 
 #
 #
 #
 # Load the plugins
-for plugin in $DIR/plugins.d/*.plugin; do
+for plugin in $DIR/plugins.d/*.global.plugin; do
   source  $plugin
 done
+# If there is no active profile, there's no local plugins to load
+if [ "$(activeProfile)" != "" ]; then
+  # Make sure plugins dir exists (legacy)
+  mkdir -p $(profileDir)/plugins
+  for plugin in `ls $(profileDir)/plugins/*.local.plugin &> /dev/null`; do
+    source $plugin
+  done
+fi
 
 # Use -gt 1 to consume two arguments per pass in the loop (e.g. each
 # argument has a corresponding value to go with it).
@@ -456,18 +429,6 @@ then
         shift
         ssh "$@"
         ;;
-      create-volume)
-        shift
-        create-volume "$@"
-        ;;
-      create-shared-volume)
-        shift
-        create-shared-volume "$@"
-        ;;
-      deploy-nexus)
-        shift
-        deploy-nexus "$@"
-        ;;
       console)
         shift
         console "$@"
@@ -483,8 +444,9 @@ then
         help
         ;;
      --*)
-         ${key:2}.execute
-         ;;
+        shift
+        ${key:2}.execute  "$@"
+        ;;
       *)
         shift # past argument
         $key "$@"

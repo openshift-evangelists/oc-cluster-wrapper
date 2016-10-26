@@ -1,0 +1,37 @@
+#!/bin/bash
+# Every plugin needs to have:
+# - A help method describing what the plugin does
+# - An execute method that will have the logic of the plugin, or any other method
+#   that will be called by name, with all the parameters passed to the plugin
+#
+# If the plugin provides different functions, they can be called by name.
+# As an example:
+#   myplugin.plugin description
+#
+#   myplugin.plugin add-user <username> <role>
+#
+#   myplugin.plugin execute
+#
+
+function nexus.describe {
+  echo "Installs a nexus repository manager in a ci project"
+}
+
+function nexus.help {
+   echo ""
+}
+
+function nexus.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+  oc adm new-project ci --as=system:admin
+  create-shared-volume 'ci/nexus-data'
+  oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+  echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters"
+}
+
+function nexus.uninstall {
+
+}
+
+nexus.describe

@@ -1,0 +1,100 @@
+#!/bin/bash
+
+function volumes.help {
+   # Select either of the two or both, depending on the functionality provided by the plugin
+   echo "  oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
+   echo "  oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
+}
+
+function volumes.install {
+  echo "Installing"
+}
+
+function volumes.uninstall {
+   echo "Unintalling"
+}
+
+function create-volume {
+  [ $# -lt 1 ] && echo "volumename is required" && exit 1
+  local __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)
+  local __volume=$1
+  local __size=${2:-"10Gi"}
+  local __path=${3:-$OPENSHIFT_HOME_DIR/profiles/${__profile}/volumes/${__volume}}
+
+  [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
+
+  oc get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
+
+  mkdir -p $__path
+
+cat <<-EOF > /tmp/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${__volume}
+spec:
+  capacity:
+    storage: ${__size}
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: ${__path}
+EOF
+
+oc create -f /tmp/pv.yaml --as=system:admin
+rm /tmp/pv.yaml
+
+echo "Volume created in ${__path}"
+}
+
+#
+# Args:
+#  $1: volumeName. Format (project/volumeName). A prebounded claim will be created to bound to a claim with Name volume in project
+#  $2: size (10Gi, 512Mi) (optional)
+#  $3: Path for the volume (optional)
+function create-shared-volume {
+  [ $# -lt 1 ] && echo "volumename is required. This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
+
+  local __projectclaim=$1
+  arrIN=(${__projectclaim//\// })
+  [ ${#arrIN[@]} -lt 2 ] && echo "volumename format is not valid.  This should take the form of <project>/<name> so the volume will be prebounded to the claim with same name in the specified project" && exit 1
+
+  local __volume=${arrIN[1]}
+  local __project=${arrIN[0]}
+  local __size=${2:-"10Gi"}
+  local __path=${3:-$OPENSHIFT_HOME_DIR/volumes/${__volume}}
+
+  [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
+
+  mkdir -p $__path
+
+  oc get persistentvolume ${__volume} -n $__project --as=system:admin &>/dev/null && error_exit "The PersistentVolume already exits"
+
+cat <<-EOF > /tmp/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ${__volume}
+spec:
+  capacity:
+    storage: ${__size}
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: ${__project}
+    name: ${__volume}
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: ${__path}
+EOF
+
+oc create -f /tmp/pv.yaml --as=system:admin
+rm /tmp/pv.yaml
+
+echo "Volume created in ${__path}"
+}
