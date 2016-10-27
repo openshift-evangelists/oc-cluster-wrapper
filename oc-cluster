@@ -190,8 +190,8 @@ function up {
 }
 
 function cleanupClusterAndExit() {
-  rm -rf $OPENSHIFT_PROFILES_DIR/$1
-  error_exit "[ERROR] There's been an error creating the cluster, the profile will be removed"
+  [ "$1" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$1
+  error_exit "[ERROR] There's been an error creating the cluster, the profile [$1] will be removed"
 }
 
 function down {
@@ -240,7 +240,7 @@ function destroy {
            down
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
-        rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
+        [ "$_profile" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
         # TODO: Remove the images
      fi
   fi
