@@ -1,0 +1,31 @@
+#!/bin/bash
+
+function new-plugin.describe {
+   echo "Describe what this plugin does"
+   new-plugin.help
+}
+
+
+function new-plugin.help {
+  echo "  oc-cluster command1 <args>"
+  echo "  oc-cluster command2 <args>"
+}
+
+
+function new-plugin.install {
+   echo "Installing plugin"
+}
+
+function new-plugin.install {
+  echo "Unintalling plugin"
+}
+
+function command1 {
+  echo "Here goes all the action"
+}
+
+function command1 {
+  echo "Here goes all the other action"
+}
+
+new-plugin.describe

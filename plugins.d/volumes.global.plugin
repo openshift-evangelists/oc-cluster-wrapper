@@ -6,14 +6,6 @@ function volumes.help {
    echo "  oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
 }
 
-function volumes.install {
-  echo "Installing"
-}
-
-function volumes.uninstall {
-   echo "Unintalling"
-}
-
 function create-volume {
   [ $# -lt 1 ] && echo "volumename is required" && exit 1
   local __profile=$(cat $OPENSHIFT_HOME_DIR/active_profile)

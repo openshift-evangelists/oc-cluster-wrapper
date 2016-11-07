@@ -1,0 +1,48 @@
+#!/bin/bash
+# Every plugin needs to have:
+# - A help method describing what the plugin does
+# - An execute method that will have the logic of the plugin, or any other method
+#   that will be called by name, with all the parameters passed to the plugin
+#
+# If the plugin provides different functions, they can be called by name.
+# As an example:
+#   myplugin.plugin description
+#
+#   myplugin.plugin add-user <username> <role>
+#
+#   myplugin.plugin execute
+#
+
+function gitlab.describe {
+  echo "Installs a gitlab registry in a ci project"
+}
+
+function gitlab.help {
+   echo ""
+}
+
+function gitlab.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+
+  # Prepull the images
+  docker pull gitlab/gitlab-ce:8.13.3-ce.0
+  docker pull redis:3.2.3-alpine
+  docker pull centos/postgresql-94-centos7:latest
+
+  oc adm new-project ci --as=system:admin
+  oc adm policy add-scc-to-group anyuid system:serviceaccounts:ci --as=system:admin
+  create-volume pv01
+  create-volume pv02
+  create-volume pv03
+  create-volume pv04
+  oc create -f https://gitlab.com/gitlab-org/omnibus-gitlab/raw/master/docker/openshift-template.json -n ci --as=system:admin
+  oc new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+  echo "Project ci has been created and shared with you. It has a gitlab instance available at gitlab.$(domainSuffix)"
+}
+
+function gitlab.uninstall {
+  echo "Todo"
+}
+
+gitlab.describe

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+function new-plugin.help {
+   # Select either of the two or both, depending on the functionality provided by the plugin
+   echo "  oc-cluster new-plugin-method"
+}
+
+function method {
+  echo "Here goes all the action"
+}
