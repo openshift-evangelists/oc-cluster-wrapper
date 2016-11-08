@@ -16,7 +16,7 @@ function new-plugin.install {
    echo "Installing plugin"
 }
 
-function new-plugin.install {
+function new-plugin.uninstall {
   echo "Unintalling plugin"
 }
 
