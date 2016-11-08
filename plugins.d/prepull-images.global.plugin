@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function pre-pull-images.help {
+function prepull-images.help {
    # Select either of the two or both, depending on the functionality provided by the plugin
    echo "  oc-cluster prepull-images-latest"
    echo "  oc-cluster prepull-images-all"

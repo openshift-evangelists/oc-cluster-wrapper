@@ -1,0 +1,32 @@
+#!/bin/bash
+
+function samplepipeline.describe {
+  echo "This plugin installs the sample pipeline in a new samlpepipeline project"
+}
+
+function samplepipeline.help {
+  echo ""
+}
+
+# The parameters to the plugin will be passed to this function
+#
+#
+function samplepipeline.install {
+   status &> /dev/null  || error_exit "There's no cluster running"
+   oc adm new-project samplepipeline --as=system:admin
+   # Install jenkins
+   oc create-volume pv_jk01
+   oc new-app jenkins-persistent -p PASSWORD=admin123
+
+   # Install the samplepipeline
+   oc new-app samplepipeline -n samplepipeline --as=system:admin
+
+   # grant privileges to the current user
+   oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n samplepipeline
+}
+
+function samplepipeline.uninstall {
+  echo "Not implemented"
+}
+
+samplepipeline.describe

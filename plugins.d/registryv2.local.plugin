@@ -1,0 +1,24 @@
+#!/bin/bash
+
+function registryv2.describe {
+  echo "This plugin the registry to return v2 schema"
+}
+
+function registryv2.help {
+  echo ""
+}
+
+# The parameters to the plugin will be passed to this function
+#
+#
+function registryv2.install {
+   status &> /dev/null  || error_exit "There's no cluster running"
+
+   oc set env dc/docker-registry -n default REGISTRY_MIDDLEWARE_REPOSITORY_OPENSHIFT_ACCEPTSCHEMA2=true --as=system:admin
+}
+
+function registryv2.uninstall {
+  echo "Not implemented"
+}
+
+registryv2.describe

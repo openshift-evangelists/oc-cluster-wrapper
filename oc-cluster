@@ -118,6 +118,11 @@ function domainSuffix {
    echo "apps.lcup"
 }
 
+function bindIP {
+   # TODO: Read this from config
+   echo "127.0.0.1"
+}
+
 ##################
 #
 #

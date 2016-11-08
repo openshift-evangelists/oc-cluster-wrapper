@@ -1,0 +1,34 @@
+#!/bin/bash
+
+function profilesnapshot.help {
+   # Select either of the two or both, depending on the functionality provided by the plugin
+   echo "  oc-cluster profilesnapshot-list [<profile>]"
+   echo "  oc-cluster profilesnapshot-save [<profile>]"
+   echo "  oc-cluster profilesnapshot-restore <profile> <snapshot-id>"
+   echo "  oc-cluster profilesnapshot-delete <snapshot-id>"
+}
+
+# Gives a list of snapshots in $(profileDir)/snapshots
+# If no profile, uses the active profile
+function profilesnapshot-list {
+  echo "Here goes all the action for profilesnapshot-list"
+}
+
+# Saves current profile as snapshot
+# The cluster needs to be stopped (CHECK THIS)
+# If no profile, uses the active profile
+function profilesnapshot-save {
+  echo "Here goes all the action profilesnapshot-save"
+}
+
+# Restores a snapshot ina profile
+# The cluster needs to be stopped
+# Profile is required as this action happens with a stopped cluster
+function profilesnapshot-restore {
+  echo "Here goes all the action profilesnapshot-restore"
+}
+
+# Deletes a snapshot from the list of snapshots
+function profilesnapshot-delete {
+  echo "Here goes all the action profilesnapshot-delete"
+}
