@@ -29,7 +29,13 @@ function gitlab.install {
   docker pull redis:3.2.3-alpine
   docker pull centos/postgresql-94-centos7:latest
 
-  oc adm new-project ci --as=system:admin
+  oc project ci > /dev/null 2>&1
+  if [[ $? == 1 ]]; then
+    # project ci does not exist
+    oc adm new-project ci --as=system:admin
+  fi
+
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
   oc adm policy add-scc-to-group anyuid system:serviceaccounts:ci --as=system:admin
   create-volume pv01
   create-volume pv02
@@ -37,12 +43,20 @@ function gitlab.install {
   create-volume pv04
   oc create -f https://gitlab.com/gitlab-org/omnibus-gitlab/raw/master/docker/openshift-template.json -n ci --as=system:admin
   oc new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
   echo "Project ci has been created and shared with you. It has a gitlab instance available at gitlab.$(domainSuffix)"
 }
 
 function gitlab.uninstall {
-  echo "Todo"
+    for resource in is/gitlab-ce is/gitlab-ce-redis \
+      dc/gitlab-ce dc/gitlab-ce-redis dc/gitlab-ce-postgresql \
+      svc/gitlab-ce svc/gitlab-ce-redis svc/gitlab-ce-postgresql \
+      pvc/gitlab-ce-redis-data pvc/gitlab-ce-etc pvc/gitlab-ce-data pvc/gitlab-ce-postgresql \
+      route/gitlab-ce \
+      pv/pv01 pv/pv02 pv/pv03 pv/pv04 \
+      template/gitlab-ce;
+    do
+      oc delete $resource -n ci
+    done
 }
 
 gitlab.describe
