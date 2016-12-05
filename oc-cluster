@@ -1,6 +1,37 @@
 #!/bin/bash
 
+# Helpers, maybe worth in another file
+function which-ip { /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'; }
+#
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+__PLATFORM='unknown'
+__UNAMESTR=$(uname)
+if [[ "$__UNAMESTR" == 'Linux' ]]; then
+   __PLATFORM='linux'
+elif [[ "$__UNAMESTR" == 'Darwin' ]]; then
+   __PLATFORM='macosx'
+fi
+
+# Platform unknown
+if [[ "$__PLATFORM" == "unknown" ]]; then
+  echo "Unkown platform: script should exit"
+else
+  echo "Performing some customization for platform $__PLATFORM"
+fi
+
+# Platform linux
+if [[ "$__PLATFORM" == "linux" ]]; then
+  __DOCKER0_IP=$(which-ip docker0)
+  echo "Using Docker0 ($__DOCKER0_IP) ip as external cluster and router address"
+  OC_CLUSTER_PUBLIC_HOSTNAME=$__DOCKER0_IP
+  OC_CLUSTER_ROUTING_SUFFIX=apps.$__DOCKER0_IP.xip.io
+  EXTRA_OPTS="--forward-ports=false"
+fi
+
+USER="$(id -un)"
+GROUP="$(id -gn)"
 
 OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
 OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX}
@@ -11,6 +42,7 @@ PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
 
 ##################
 # Add common functions
+
 #  markRestart: Marks that a restart will be required after the provisioning
 #  forceRestart: Will execute a restart and unmark a required restart
 #  restartIfRequire
@@ -114,8 +146,12 @@ function error_exit() {
 }
 
 function domainSuffix {
-   # TODO: Read this from config
-   echo "apps.lcup"
+   if [[ $__PLATFORM == "linux" ]]; then
+     echo ${OC_CLUSTER_ROUTING_SUFFIX}
+   else
+     # TODO: Read this from config
+     echo "apps.lcup"
+   fi
 }
 
 ##################
@@ -168,17 +204,22 @@ function up {
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
                 --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
                 --use-existing-config \
+                "$EXTRA_OPTS" \
                 "$@"
+
+    sudo chown -R $USER:$GROUP $OPENSHIFT_PROFILES_DIR/$_profile/
 
     status &> /dev/null  || cleanupClusterAndExit $__profile
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
+    CONTEXT="default/"$(echo $OC_CLUSTER_PUBLIC_HOSTNAME| tr -s '.' '-')":8443/system:admin"
+
     echo "[INFO] Cluster created succesfully"
     #Add developer as sudoer
     oc adm policy add-cluster-role-to-group sudoer system:authenticated \
         --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
-        --context="default/127-0-0-1:8443/system:admin"
+        --context="$CONTEXT"
 
     # TODO: OpenIssue and wait for it t be fixed and remove
     # Hack for metrics not properly working
@@ -368,7 +409,6 @@ function help {
         echo "  oc-cluster ssh"
         echo "  oc-cluster console"
         echo "  oc-cluster completion bash"
-
         echo "  oc-cluster plugin-install <plugin>"
         echo "  oc-cluster plugin-uninstall <plugin>"
         echo "  oc-cluster plugin-list"
@@ -382,7 +422,7 @@ function help {
         done
         # Help for installed plugins in the active profile
         if [ "$(activeProfile)" != "" ]; then
-           for i in $(profileDir)/plugins/*.local.plugin
+           for i in $(find $(profileDir)/plugins -type f -name \*.local.plugin)
            do
              local _filename=$(basename "$i")
              local _script=${_filename%%.*}

@@ -17,7 +17,8 @@ function create-volume {
 
   oc get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
 
-  mkdir -p $__path
+  # Gives 777 permisions to the folder, otherwise non-root cannot write on it
+  mkdir -m 777 -p $__path
 
 cat <<-EOF > /tmp/pv.yaml
 apiVersion: v1
