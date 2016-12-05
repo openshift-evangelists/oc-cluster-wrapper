@@ -35,14 +35,14 @@ function gitlab.install {
     oc adm new-project ci --as=system:admin
   fi
 
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
   oc adm policy add-scc-to-group anyuid system:serviceaccounts:ci --as=system:admin
   create-volume pv01
   create-volume pv02
   create-volume pv03
   create-volume pv04
   oc create -f https://gitlab.com/gitlab-org/omnibus-gitlab/raw/master/docker/openshift-template.json -n ci --as=system:admin
-  oc new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci
+  oc new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci --as=system:admin
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
   echo "Project ci has been created and shared with you. It has a gitlab instance available at gitlab.$(domainSuffix)"
 }
 

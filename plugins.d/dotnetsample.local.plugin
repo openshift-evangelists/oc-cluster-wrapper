@@ -1,0 +1,32 @@
+#!/bin/bash
+
+function dotnetsample.describe {
+   echo "Install a basic dotnet sample app"
+}
+
+function dotnetsample.help {
+   :
+}
+
+
+function dotnetsample.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+
+  # Pull dotnet image
+  docker pull registry.access.redhat.com/dotnet/dotnetcore-10-rhel7:latest
+
+  # Create the sample project
+  oc adm new-project dotnetsample --as=system:admin
+
+  # Install the dotnetsample
+  oc new-app registry.access.redhat.com/dotnet/dotnetcore-10-rhel7~https://github.com/openshift-s2i/s2i-aspnet-example --name=aspnet-app --as=system:admin -n dotnetsample
+
+  # grant privileges to the current user
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n dotnetsample
+}
+
+function dotnetsample.uninstall {
+  oc delete project dotnetsample
+}
+
+dotnetsample.describe

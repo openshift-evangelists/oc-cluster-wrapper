@@ -16,7 +16,7 @@ function samplepipeline.install {
    oc adm new-project samplepipeline --as=system:admin
    # Install jenkins
    oc create-volume pv_jk01
-   oc new-app jenkins-persistent -p PASSWORD=admin123
+   oc new-app jenkins-persistent -p PASSWORD=admin123 -n samplepipeline
 
    # Install the samplepipeline
    oc new-app samplepipeline -n samplepipeline --as=system:admin
