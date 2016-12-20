@@ -25,7 +25,7 @@ function gitlab.install {
   status &> /dev/null  || error_exit "There's no cluster running"
 
   # Prepull the images
-  docker pull gitlab/gitlab-ce:8.13.3-ce.0
+  docker pull gitlab/gitlab-ce:8.14.1-ce.1
   docker pull redis:3.2.3-alpine
   docker pull centos/postgresql-94-centos7:latest
 
@@ -35,7 +35,7 @@ function gitlab.install {
     oc adm new-project ci --as=system:admin
   fi
 
-  oc adm policy add-scc-to-group anyuid system:serviceaccounts:ci --as=system:admin
+  oc adm policy add-scc-to-user anyuid system:serviceaccount:ci:gitlab-ce-user --as=system:admin
   create-volume pv01
   create-volume pv02
   create-volume pv03
