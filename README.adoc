@@ -182,7 +182,7 @@ that you can define to use this ip to bind the cluster to. Otherwise it will def
 Example:
 
 ----
-export OC_CLUSTER_BIND_IP=11.2.2.2
+export OC_CLUSTER_PUBLIC_HOSTNAME=11.2.2.2
 ----
 
 == Prerequisites
