@@ -16,13 +16,12 @@ fi
 
 # Platform unknown
 if [[ "$__PLATFORM" == "unknown" ]]; then
-  echo "Unkown platform: script should exit"
-else
-  echo "Performing some customization for platform $__PLATFORM"
+  echo "Unkown platform: script should exit" && exit 1
 fi
 
 # Platform linux
 if [[ "$__PLATFORM" == "linux" ]]; then
+  echo "Performing some customization for platform $__PLATFORM"
   __DOCKER0_IP=$(which-ip docker0)
   echo "Using Docker0 ($__DOCKER0_IP) ip as external cluster and router address"
   OC_CLUSTER_PUBLIC_HOSTNAME=$__DOCKER0_IP
@@ -39,6 +38,8 @@ OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
 
+OS_DEFAULT_USER="developer"
+OS_DEFAULT_PROJECT="myproject"
 
 ##################
 # Add common functions
@@ -208,7 +209,7 @@ function up {
                 --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
                 --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
                 --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
-                --use-existing-config \
+                --use-existing-config --forward-ports=false \
                 "$EXTRA_OPTS" \
                 "$@"
 
@@ -233,6 +234,16 @@ function up {
     echo "Any user is sudoer. They can execute commands with '--as=system:admin'"
     # Create user admin that can log into the console
     oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
+
+
+    # Create the context named after the profile to allow for reuse
+    # Info from: http://kubernetes.io/docs/user-guide/kubeconfig-file/
+    # TODO: Change skip-tls with the certs --certificate-authority=
+    oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true
+    # TODO: Change token for secure certs: --client-certificate=path/to/my/client/cert --client-key=path/to/my/client/key
+    oc adm config set-credentials ${OS_DEFAULT_USER}@${_profile} --token=$(oc whoami -t)
+    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}@${_profile} --namespace=${OS_DEFAULT_PROJECT}
+    oc adm config use-context ${_profile}
   else
     echo "[INFO] Running a previously created cluster"
     # Just start the cluster
@@ -241,6 +252,9 @@ function up {
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
+
+    # Use right context after starting up (Similar to log in)
+    oc adm config use-context ${_profile}
   fi
 }
 
@@ -262,6 +276,7 @@ function down {
 function status {
   [[ "$(docker ps -f name=origin -q)" == "" ]] && echo "no cluster running" && return 1
   echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
+  oc cluster status
   return 0
 }
 
@@ -503,7 +518,7 @@ then
         ;;
       *)
         shift # past argument
-        $key "$@"
+        $key "$@" 2> /dev/null || echo "Command $key not found"
         ;;
    esac
 else
