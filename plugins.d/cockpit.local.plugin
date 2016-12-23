@@ -14,11 +14,11 @@ function cockpit.help {
 function cockpit.install {
    status &> /dev/null  || error_exit "There's no cluster running"
 
-   docker pull cockpit/cockpit:latest
+   docker pull cockpit/kubernetes:latest
 
    oc adm new-project cockpit --as=system:admin
    # Install template
-   oc create -f - <-EOF
+   cat <<-EOF > /tmp/cockpit.yaml
    {
       "kind": "Template",
       "apiVersion": "v1",
@@ -200,12 +200,15 @@ function cockpit.install {
       ]
    }
 EOF
+   oc create -f /tmp/cockpit.yaml -n cockpit --as=system:admin
+   rm /tmp/cockpit.yaml
 
    oc new-app cockpit -p APPLICATION_HOSTNAME=cockpit.$(domainSuffix) -p MASTER_IP=$(bindIP) -n cockpit --as=system:admin
+   echo "Project cockpit has been created and shared with you. It has a cockpit instance available at http://cockpit.$(domainSuffix)"
 }
 
 function cockpit.uninstall {
-  echo "Not implemented"
+    oc delete project cockpit --as=system:admin
 }
 
 cockpit.describe

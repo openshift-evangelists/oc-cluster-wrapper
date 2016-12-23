@@ -43,7 +43,7 @@ function gitlab.install {
   oc create -f https://gitlab.com/gitlab-org/omnibus-gitlab/raw/master/docker/openshift-template.json -n ci --as=system:admin
   oc new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci --as=system:admin
   oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
-  echo "Project ci has been created and shared with you. It has a gitlab instance available at gitlab.$(domainSuffix)"
+  echo "Project ci has been created and shared with you. It has a gitlab instance available at http://gitlab.$(domainSuffix)"
 }
 
 function gitlab.uninstall {
@@ -55,7 +55,7 @@ function gitlab.uninstall {
       pv/pv01 pv/pv02 pv/pv03 pv/pv04 \
       template/gitlab-ce;
     do
-      oc delete $resource -n ci
+      oc delete $resource  --as=system:admin -n ci
     done
 }
 
