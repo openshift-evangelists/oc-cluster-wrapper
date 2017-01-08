@@ -29,14 +29,15 @@ if [[ "$__PLATFORM" == "linux" ]]; then
   EXTRA_OPTS="--forward-ports=false"
 fi
 
-USER="$(id -un)"
-GROUP="$(id -gn)"
+USER="$(id -u)"
+GROUP="$(id -g)"
 
 OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
 OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX}
 OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
+OC_CLUSTER_PREFILL_PVS=${OC_CLUSTER_PREFILL_PVS:-10}
 
 OS_DEFAULT_USER="developer"
 OS_DEFAULT_PROJECT="myproject"
@@ -88,6 +89,10 @@ function masterConfigDir {
    else
       echo ""
    fi
+}
+
+function internalEtcdDir {
+   echo "/var/lib/origin/openshift.local.etcd"
 }
 
 function internalProfileDir {
@@ -201,29 +206,37 @@ function up {
 
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
 
-    oc cluster up --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME \
-                --host-data-dir $OPENSHIFT_HOST_DATA_DIR \
-                --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR \
+    oc cluster up --public-hostname "$OC_CLUSTER_PUBLIC_HOSTNAME" \
+                --host-data-dir "$OPENSHIFT_HOST_DATA_DIR" \
+                --host-config-dir "$OPENSHIFT_HOST_CONFIG_DIR" \
                 --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
-                --use-existing-config --forward-ports=false \
+                --use-existing-config \
                 "$EXTRA_OPTS" \
                 "$@"
 
-    sudo chown -R $USER:$GROUP $OPENSHIFT_PROFILES_DIR/$_profile/
+    # Fix permissions in linux
+    if [[ "$__PLATFORM" == "linux" ]]; then
+      docker exec origin chown -R $USER:$GROUP $(internalProfileDir) $(internalProfileDir)
+      echo "Permissions on profile dir fixed"
+    fi
 
     status &> /dev/null  || cleanupClusterAndExit $__profile
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
-    echo "$OC_CLUSTER_ROUTING_SUFFIX" > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
-    echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
+    echo "[INFO] Cluster created succesfully"
 
     CONTEXT="default/"$(echo $OC_CLUSTER_PUBLIC_HOSTNAME| tr -s '.' '-')":8443/system:admin"
-
-    echo "[INFO] Cluster created succesfully"
     #Add developer as sudoer
     oc adm policy add-cluster-role-to-group sudoer system:authenticated \
         --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
         --context="$CONTEXT"
+
+    # Prefill with 10 volumes
+    for i in $(seq -f %02g 1 $OC_CLUSTER_PREFILL_PVS)
+    do
+      create-volume vol${i} &> /dev/null
+    done
+    echo "$OC_CLUSTER_PREFILL_PVS Persistent Volumes are available for use"
 
     # TODO: OpenIssue and wait for it t be fixed and remove
     # Hack for metrics not properly working
@@ -233,15 +246,14 @@ function up {
     # Create user admin that can log into the console
     oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin
 
-
     # Create the context named after the profile to allow for reuse
     # Info from: http://kubernetes.io/docs/user-guide/kubeconfig-file/
     # TODO: Change skip-tls with the certs --certificate-authority=
-    oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true
+    oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true &> /dev/null
     # TODO: Change token for secure certs: --client-certificate=path/to/my/client/cert --client-key=path/to/my/client/key
-    oc adm config set-credentials ${OS_DEFAULT_USER}@${_profile} --token=$(oc whoami -t)
-    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}@${_profile} --namespace=${OS_DEFAULT_PROJECT}
-    oc adm config use-context ${_profile}
+    oc adm config set-credentials ${OS_DEFAULT_USER}@${_profile} --token=$(oc whoami -t) &> /dev/null
+    oc adm config set-context ${_profile} --cluster=${_profile} &> /dev/null --user=${OS_DEFAULT_USER}@${_profile} --namespace=${OS_DEFAULT_PROJECT} &> /dev/null
+    oc adm config use-context ${_profile} &> /dev/null
   else
     echo "[INFO] Running a previously created cluster"
     # Just start the cluster
@@ -252,7 +264,7 @@ function up {
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
     # Use right context after starting up (Similar to log in)
-    oc adm config use-context ${_profile}
+    oc adm config use-context ${_profile} &> /dev/null
   fi
 }
 
