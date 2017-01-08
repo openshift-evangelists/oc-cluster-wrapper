@@ -1,0 +1,214 @@
+#!/bin/bash
+
+function cockpit.describe {
+  echo "This plugin installs cockpit in a cockpit project"
+}
+
+function cockpit.help {
+  echo ""
+}
+
+# The parameters to the plugin will be passed to this function
+#
+#
+function cockpit.install {
+   status &> /dev/null  || error_exit "There's no cluster running"
+
+   docker pull cockpit/kubernetes:latest
+
+   oc adm new-project cockpit --as=system:admin
+   # Install template
+   cat <<-EOF > /tmp/cockpit.yaml
+   {
+      "kind": "Template",
+      "apiVersion": "v1",
+      "metadata": {
+         "name": "cockpit"
+      },
+      "parameters": [
+         {
+            "description": "The name for the application. The service will be named like the application.",
+            "displayName": "Application name.",
+            "name": "APPLICATION_NAME",
+            "value": "cockpit",
+            "required": true
+         },
+         {
+            "description": "Custom hostname for service routes.  Leave blank for default hostname, e.g.: <application-name>.<project>.<default-domain-suffix>",
+            "displayName": "Cockpit instance hostname",
+            "name": "APPLICATION_HOSTNAME",
+            "required": true
+         },
+         {
+            "description": "Ip where the master can be located",
+            "displayName": "Master's IP",
+            "name": "MASTER_IP",
+            "value": "127.0.0.1",
+            "required": true
+         }
+      ],
+      "objects": [
+         {
+            "kind": "DeploymentConfig",
+            "apiVersion": "v1",
+            "metadata": {
+               "name": "openshift-cockpit",
+               "labels": {
+                  "name": "openshift-cockpit"
+               }
+            },
+            "spec": {
+               "strategy": {
+                  "type": "Rolling",
+                  "rollingParams": {
+                     "updatePeriodSeconds": 1,
+                     "intervalSeconds": 1,
+                     "timeoutSeconds": 600,
+                     "maxUnavailable": "25%",
+                     "maxSurge": "25%"
+                  },
+                  "resources": {}
+               },
+               "triggers": [
+                  {
+                     "type": "ConfigChange"
+                  }
+               ],
+               "replicas": 1,
+               "test": false,
+               "selector": {
+                  "name": "openshift-cockpit"
+               },
+               "template": {
+                  "metadata": {
+                     "labels": {
+                        "name": "openshift-cockpit"
+                     }
+                  },
+                  "spec": {
+                     "containers": [
+                        {
+                           "name": "openshift-cockpit",
+                           "image": "cockpit/kubernetes",
+                           "ports": [
+                              {
+                                 "containerPort": 9090,
+                                 "protocol": "TCP"
+                              }
+                           ],
+                           "env": [
+                              {
+                                 "name": "OPENSHIFT_OAUTH_PROVIDER_URL",
+                                 "value": "https://${MASTER_IP}:8443"
+                              },
+                              {
+                                 "name": "OPENSHIFT_OAUTH_CLIENT_ID",
+                                 "value": "cockpit-oauth-client"
+                              },
+                              {
+                                 "name": "KUBERNETES_INSECURE"
+                              },
+                              {
+                                 "name": "KUBERNETES_CA_DATA"
+                              },
+                              {
+                                 "name": "COCKPIT_KUBE_INSECURE",
+                                 "value": "true"
+                              },
+                              {
+                                 "name": "REGISTRY_HOST"
+                              },
+                              {
+                                 "name": "REGISTRY_ONLY",
+                                 "value": "false"
+                              }
+                           ],
+                           "resources": {},
+                           "terminationMessagePath": "/dev/termination-log",
+                           "imagePullPolicy": "Always"
+                        }
+                     ],
+                     "restartPolicy": "Always",
+                     "terminationGracePeriodSeconds": 30,
+                     "dnsPolicy": "ClusterFirst",
+                     "securityContext": {}
+                  }
+               }
+            }
+         },
+         {
+            "kind": "Service",
+            "apiVersion": "v1",
+            "metadata": {
+               "name": "openshift-cockpit",
+               "labels": {
+                  "name": "openshift-cockpit"
+               }
+            },
+            "spec": {
+               "ports": [
+                  {
+                     "name": "http",
+                     "protocol": "TCP",
+                     "port": 80,
+                     "targetPort": 9090
+                  }
+               ],
+               "selector": {
+                  "name": "openshift-cockpit"
+               },
+               "type": "ClusterIP",
+               "sessionAffinity": "None"
+            }
+         },
+         {
+            "kind": "Route",
+            "apiVersion": "v1",
+            "metadata": {
+               "name": "openshift-cockpit",
+               "labels": {
+                  "name": "openshift-cockpit"
+               }
+            },
+            "spec": {
+               "host": "${APPLICATION_HOSTNAME}",
+               "to": {
+                  "kind": "Service",
+                  "name": "openshift-cockpit"
+               },
+               "port": {
+                  "targetPort": "http"
+               }
+            }
+         },
+         {
+            "kind": "OAuthClient",
+            "apiVersion": "v1",
+            "metadata": {
+               "name": "cockpit-oauth-client",
+               "labels": {
+                  "name": "openshift-cockpit"
+               }
+            },
+            "respondWithChallenges": false,
+            "secret": "usermaBGPqkERbospcYt0ED64DDBtu2Nby1lv1bJbrlpaxwSYlr3nXwGwTdO05sjWlLm",
+            "allowAnyScope": true,
+            "redirectURIs": [
+               "http://${APPLICATION_HOSTNAME}"
+            ]
+         }
+      ]
+   }
+EOF
+   oc create -f /tmp/cockpit.yaml -n cockpit --as=system:admin
+   rm /tmp/cockpit.yaml
+
+   oc new-app cockpit -p APPLICATION_HOSTNAME=cockpit.$(domainSuffix) -p MASTER_IP=$(bindIP) -n cockpit --as=system:admin
+   echo "Project cockpit has been created and shared with you. It has a cockpit instance available at http://cockpit.$(domainSuffix)"
+}
+
+function cockpit.uninstall {
+    oc delete project cockpit --as=system:admin
+}
+
+cockpit.describe

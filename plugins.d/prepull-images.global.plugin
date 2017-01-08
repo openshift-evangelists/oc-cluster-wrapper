@@ -1,0 +1,43 @@
+#!/bin/bash
+
+function prepull-images.help {
+   # Select either of the two or both, depending on the functionality provided by the plugin
+   echo "  oc-cluster prepull-images-latest"
+   echo "  oc-cluster prepull-images-all"
+}
+
+function prepull-images-latest {
+  docker pull kubernetes/guestbook
+  docker pull centos/ruby-23-centos7:latest
+  docker pull centos/nodejs-4-centos7:latest
+  docker pull centos/perl-520-centos7:latest
+  docker pull centos/php-56-centos7:latest
+  docker pull centos/python-34-centos7:latest
+  docker pull centos/python-35-centos7:latest
+  docker pull openshift/wildfly-100-centos7:latest
+  docker pull openshift/wildfly-101-centos7:latest
+  docker pull centos/mysql-56-centos7:latest
+  docker pull centos/mariadb-101-centos7:latest
+  docker pull centos/postgresql-95-centos7:latest
+  docker pull centos/mongodb-32-centos7:latest
+  docker pull openshift/jenkins-2-centos7:latest
+}
+
+function prepull-images-all {
+  prepull-images-latest
+  docker pull openshift/ruby-20-centos7:latest
+  docker pull centos/ruby-22-centos7:latest
+  docker pull openshift/nodejs-010-centos7:latest
+  docker pull openshift/perl-516-centos7:latest
+  docker pull openshift/php-55-centos7:latest
+  docker pull openshift/python-33-centos7:latest
+  docker pull centos/python-27-centos7:latest
+  docker pull openshift/wildfly-81-centos7:latest
+  docker pull openshift/wildfly-90-centos7:latest
+  docker pull openshift/mysql-55-centos7:latest
+  docker pull openshift/postgresql-92-centos7:latest
+  docker pull centos/postgresql-94-centos7:latest
+  docker pull openshift/mongodb-24-centos7:latest
+  docker pull centos/mongodb-26-centos7:latest
+  docker pull openshift/jenkins-1-centos7:latest
+}
