@@ -24,7 +24,7 @@ function user.install {
   { \
     \\\"challenge\\\": true, \
     \\\"login\\\": true, \
-    \\\"mappingMethod\\\": \\\"claim\\\", \
+    \\\"mappingMethod\\\": \\\"add\\\", \
     \\\"name\\\": \\\"htpassword\\\", \
     \\\"provider\\\": \
       { \
@@ -45,7 +45,6 @@ function user.uninstall {
 function user-add {
   echo "user-add"
   # after adding a user, restart
-
 }
 
 function user-remove {
@@ -54,7 +53,6 @@ function user-remove {
 
 function user-login {
   echo "user-login"
-
 }
 
 user.describe
