@@ -220,7 +220,7 @@ function up {
       echo "Permissions on profile dir fixed"
     fi
 
-    status &> /dev/null  || cleanupClusterAndExit $__profile
+    status &> /dev/null  || cleanupClusterAndExit $_profile
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
     echo "[INFO] Cluster created succesfully"
