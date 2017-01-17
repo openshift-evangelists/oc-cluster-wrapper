@@ -192,10 +192,14 @@ function up {
     local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/volumes
     local OPENSHIFT_HOST_PLUGINS_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/plugins
 
+    mkdir -p $OPENSHIFT_PROFILES_DIR/$_profile
     mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
     mkdir -p $OPENSHIFT_HOST_DATA_DIR
     mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
     mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
+    # Save hostname and suffix
+    echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
+    echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
 
     echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
                 --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
