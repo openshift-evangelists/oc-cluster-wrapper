@@ -191,12 +191,14 @@ function up {
     local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/config
     local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/volumes
     local OPENSHIFT_HOST_PLUGINS_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/plugins
+    local OPENSHIFT_HOST_PV_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/pv
 
     mkdir -p $OPENSHIFT_PROFILES_DIR/$_profile
     mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
     mkdir -p $OPENSHIFT_HOST_DATA_DIR
     mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
     mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
+    mkdir -p $OPENSHIFT_HOST_PV_DIR
     # Save hostname and suffix
     echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
     echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
@@ -204,6 +206,7 @@ function up {
     echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
                 --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
                 --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
+                --host-pv-dir  '$OPENSHIFT_HOST_PV_DIR' \
                 --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
                 --use-existing-config \
                 $@" > $OPENSHIFT_PROFILES_DIR/$_profile/run
@@ -217,6 +220,7 @@ function up {
                 --use-existing-config \
                 "$EXTRA_OPTS" \
                 "$@"
+                #                --host-pv-dir  "$OPENSHIFT_HOST_PV_DIR" \
 
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
@@ -256,8 +260,13 @@ function up {
     oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true &> /dev/null
     # TODO: Change token for secure certs: --client-certificate=path/to/my/client/cert --client-key=path/to/my/client/key
     oc adm config set-credentials ${OS_DEFAULT_USER}@${_profile} --token=$(oc whoami -t) &> /dev/null
-    oc adm config set-context ${_profile} --cluster=${_profile} &> /dev/null --user=${OS_DEFAULT_USER}@${_profile} --namespace=${OS_DEFAULT_PROJECT} &> /dev/null
-    oc adm config use-context ${_profile} &> /dev/null
+    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}@${_profile} --namespace=${OS_DEFAULT_PROJECT} &> /dev/null
+    oc adm config use-context ${_profile} # &> /dev/null
+
+    # Add a label to the created images so that can be removed with the cluster
+    echo "Addind an oc-profile=${_profile} label to every generated image so they can be later removed"
+    configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" &> /dev/null
+    markRestart
   else
     echo "[INFO] Running a previously created cluster"
     # Just start the cluster
@@ -268,7 +277,7 @@ function up {
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
     # Use right context after starting up (Similar to log in)
-    oc adm config use-context ${_profile} &> /dev/null
+    oc adm config use-context ${_profile} # &> /dev/null
   fi
 }
 
@@ -325,7 +334,13 @@ function destroy {
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
         [ "$_profile" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
+        echo "Removing .kubeconfig profiles"
+        oc adm config delete-cluster $_profile &> /dev/null
+        oc adm config delete-context $_profile &> /dev/null
         # TODO: Remove the images
+        local _num_images=$(docker images --filter label=oc-profile=${_profile} -q | wc -l)
+        echo "Removing $((${_num_images})) images built with this cluster"
+        docker rmi $(docker images --filter label=oc-profile=${_profile} -q) &> /dev/null
      fi
   fi
 }
