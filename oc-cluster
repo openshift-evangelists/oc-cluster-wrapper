@@ -29,6 +29,12 @@ if [[ "$__PLATFORM" == "linux" ]]; then
   EXTRA_OPTS="--forward-ports=false"
 fi
 
+__OC_VERSION="$(oc version | grep oc)"
+OC_PV_OPT_NAME="pv"
+if [[ "$__OC_VERSION" == *"3.4"* ]]; then
+  OC_PV_OPT_NAME="volumes"
+fi
+
 USER="$(id -u)"
 GROUP="$(id -g)"
 
@@ -206,7 +212,7 @@ function up {
     echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
                 --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
                 --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
-                --host-pv-dir  '$OPENSHIFT_HOST_PV_DIR' \
+                --host-${OC_PV_OPT_NAME}-dir  '$OPENSHIFT_HOST_PV_DIR' \
                 --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
                 --use-existing-config \
                 $@" > $OPENSHIFT_PROFILES_DIR/$_profile/run
@@ -220,7 +226,7 @@ function up {
                 --use-existing-config \
                 "$EXTRA_OPTS" \
                 "$@"
-                #                --host-pv-dir  "$OPENSHIFT_HOST_PV_DIR" \
+                #                --host-${OC_PV_OPT_NAME}-dir  "$OPENSHIFT_HOST_PV_DIR" \
 
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
