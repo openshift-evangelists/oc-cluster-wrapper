@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Helpers, maybe worth in another file
-function which-ip { /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'; }
+function which-ip { /sbin/ip a show dev $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}' | cut -d "/" -f 1; }
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
