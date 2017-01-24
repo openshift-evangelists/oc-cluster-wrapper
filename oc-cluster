@@ -556,7 +556,7 @@ then
       plugins-list)
          plugins-list
          ;;
-      -h|help)
+      -h|--help)
         help
         ;;
      --*)
