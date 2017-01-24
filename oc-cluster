@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DOC="https://github.com/openshift-evangelists/oc-cluster-wrapper/blob/master/README.adoc"
+SCRIPT_NAME=`basename "$0"`
 # Helpers, maybe worth in another file
 function which-ip { /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'; }
 #
@@ -161,6 +163,24 @@ function bindIP {
    echo "$_hostname"
 }
 
+# Function that tells me if the client used supports some features
+#
+# pv,proxy,image-streams
+#
+# Return 0 if it supports it, non zero else
+function supports {
+  if [ "$1" == "pv" ]; then
+    ret=$(oc cluster up -h | grep host-pv-dir | wc -l)
+    [ $ret -eq 0 ] && return 1 || return 0
+  elif [ "$1" == "proxy" ]; then
+    ret=$(oc cluster up -h | grep proxy | wc -l)
+    [ $ret -eq 0 ] && return 1 || return 0
+  elif [ "$1" == "image-streams" ]; then
+    ret=$(oc cluster up -h | grep image-streams | wc -l)
+    [ $ret -eq 0 ] && return 1 || return 0
+  fi
+}
+
 ##################
 #
 #
@@ -169,6 +189,8 @@ function bindIP {
 
 
 function up {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   local _profile="$1"
 
   # Test that there is not a running cluster already
@@ -203,24 +225,23 @@ function up {
     echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
     echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
 
-    echo "oc cluster up --public-hostname '$OC_CLUSTER_PUBLIC_HOSTNAME' \
-                --host-data-dir '$OPENSHIFT_HOST_DATA_DIR' \
-                --host-config-dir '$OPENSHIFT_HOST_CONFIG_DIR' \
-                --host-pv-dir  '$OPENSHIFT_HOST_PV_DIR' \
-                --routing-suffix '$OC_CLUSTER_ROUTING_SUFFIX' \
-                --use-existing-config \
-                $@" > $OPENSHIFT_PROFILES_DIR/$_profile/run
+    # Build command line
+    local CMDLINE="oc cluster up"
+    CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
+    CMDLINE+=" --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR"
+    CMDLINE+=" --use-existing-config"
+    CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
+    CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
+    CMDLINE+=" $@"
+    if supports pv; then
+      CMDLINE+=" --host-pv-dir $OPENSHIFT_HOST_PV_DIR"
+    fi
+    # TODO: Add support for proxies and image streams, and
+    # custom arguments. Do not support anything coming from cluster up
 
+    echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
-
-    oc cluster up --public-hostname "$OC_CLUSTER_PUBLIC_HOSTNAME" \
-                --host-data-dir "$OPENSHIFT_HOST_DATA_DIR" \
-                --host-config-dir "$OPENSHIFT_HOST_CONFIG_DIR" \
-                --routing-suffix "$OC_CLUSTER_ROUTING_SUFFIX" \
-                --use-existing-config \
-                "$EXTRA_OPTS" \
-                "$@"
-                #                --host-pv-dir  "$OPENSHIFT_HOST_PV_DIR" \
+    $CMDLINE
 
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
@@ -264,7 +285,7 @@ function up {
     oc adm config use-context ${_profile} # &> /dev/null
 
     # Add a label to the created images so that can be removed with the cluster
-    echo "Addind an oc-profile=${_profile} label to every generated image so they can be later removed"
+    echo "Adding an oc-profile=${_profile} label to every generated image so they can be later removed"
     configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" &> /dev/null
     markRestart
   else
@@ -281,31 +302,85 @@ function up {
   fi
 }
 
+function up.help {
+  echo "Starts/Creates a cluster with the given profile name (or default)"
+  echo "in case no profile is specified"
+  echo ""
+  echo "Profile information will be stored in $OPENSHIFT_PROFILES_DIR/<PROFILE>"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME up [<profile>] [<args>]"
+  echo ""
+  echo "Available Environement variables:"
+  echo ""
+  echo "OC_CLUSTER_PUBLIC_HOSTNAME (defaults to 127.0.0.1)"
+  echo "OC_CLUSTER_ROUTING_SUFFIX (defaults to apps.127.0.0.1.xip.ip)"
+  echo ""
+  echo "Available Arguments:"
+  echo ""
+  echo "--version"
+  echo "--type='origin': Specify the type of install ocp|origin"
+  echo "--image-streams='centos7': Specify which image streams to use, centos7|rhel7"
+  echo "--logging=false: If true, install logging (experimental)"
+  echo "--metrics=false: If true, install metrics (experimental)"
+  echo "--http-proxy='': HTTP proxy to use for master and builds"
+  echo "--https-proxy='': HTTPS proxy to use for master and builds"
+  echo "--no-proxy=[]: List of hosts or subnets for which a proxy should not be used"
+  echo "-e, --env=[]: Specify a key-value pair for an environment variable to set on OpenShift container"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 function cleanupClusterAndExit() {
   [ "$1" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$1
   error_exit "[ERROR] There's been an error creating the cluster, the profile [$1] will be removed"
 }
 
 function down {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   status &> /dev/null || return
   echo "Bringing the cluster down"
   oc cluster down
   rm -f $OPENSHIFT_HOME_DIR/active_profile
 }
 
+function down.help {
+  echo "Stops the current active cluster. No information will be removed"
+  echo "so the cluster can be later started again"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME down"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 #
 # Args:
 #  $1: [-s] silent
 function status {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   [[ "$(docker ps -f name=origin -q)" == "" ]] && echo "no cluster running" && return 1
   echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
   oc cluster status
   return 0
 }
 
+function status.help {
+  echo "Displays status information about the active cluster/profile"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME status"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 # If the cluster is up, it will bring it down and destroy active_profile
 # Otherwise will ask for profile
 function destroy {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   local _profile=$1
   local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
 
@@ -345,7 +420,24 @@ function destroy {
   fi
 }
 
+function destroy.help {
+  echo "Destroys the specified cluster, or the current active cluster"
+  echo "if none is specified."
+  echo ""
+  echo "All the information store for the profile will be removed"
+  echo "- This information is stored in $OPENSHIFT_PROFILES_DIR/<PROFILE>"
+  echo "- Also the profile will be cleared from the .kubeconfig file"
+  echo "- All the images created by this cluster will be removed"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME destroy [<PROFILE>]"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 function list {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   echo "Profiles:"
   [[ ! -d "$OPENSHIFT_PROFILES_DIR/" ]] && error_exit "[ERROR] Missing profiles dir [$OPENSHIFT_PROFILES_DIR]"
   for i in `ls $OPENSHIFT_PROFILES_DIR`
@@ -354,17 +446,54 @@ function list {
   done
 }
 
+function list.help {
+  echo "List all the available profiles"
+  echo ""
+  echo "Profiles are located in $OPENSHIFT_PROFILES_DIR"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME list"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 function ssh {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   echo "Going into the Origin Container"
   docker exec -it origin /bin/bash
 }
 
-function console {
-  echo "https://127.0.0.1:8443/console"
+function ssh.help {
+  echo "Connects to the origin container."
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME ssh"
+  echo ""
+  echo "See the documentation at $DOC"
 }
 
+function console {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
+  [ ! -z "$(bindIP)" ] &&
+    echo "https://$(bindIP):8443/console" ||
+    echo "No console"
+}
+
+function console.help {
+  echo "Prints a url link to the cluster's console"
+  echo ""
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME console"
+  echo ""
+  echo "See the documentation at $DOC"
+}
 
 function completion() {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   local shell=$1
   [[ $shell != "bash" ]] && echo "Only bash supported for now" && return
 cat << "EOF"
@@ -372,10 +501,11 @@ OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 _oc_cluster_completion() {
   local cur prev command commands profiles cluster_args
   COMPREPLY=()   # Array variable storing the possible completions.
+  # TODO: Add "-h --help"
   cur=${COMP_WORDS[COMP_CWORD]}
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   command="${COMP_WORDS[1]}"
-  commands="up down destroy list status ssh console plugin-list plugin-install plugin-uninstall"
+  commands="up down destroy list status ssh console plugin-list plugin-install plugin-uninstall -h --help"
 
   profiles=$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
 
@@ -401,10 +531,21 @@ complete -o nospace -F _oc_cluster_completion oc-cluster
 EOF
 }
 
+function completion.help {
+  echo "Provides bash command line completion for core $SCRIPT_NAME"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME completion bash"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 #
 # Install plugin
 #
 function plugin-install {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   local _plugin=$1
   [ ! -e $PLUGINS_DIR/${_plugin}.local.plugin ] && error_exit "[ERROR] There's no plugin named [${_plugin}]"
   # A plugin can only be installed on an active cluster
@@ -426,7 +567,23 @@ function plugin-install {
   fi
 }
 
+function plugin-install.help {
+  echo "Installs a local plugin"
+  echo ""
+  echo "This will link the plugin in $OPENSHIFT_PROFILES_DIR/<PROFILE>/plugins"
+  echo "and make all the provided command by the plugin also available."
+  echo "After the plugin is installed, executing $SCRIPT_NAME -h "
+  echo "will list the new commands"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME plugin-install <PLUGIN-NAME>"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 function plugin-uninstall {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
    local _plugin=$1
    [ ! -e $PLUGINS_DIR/${_plugin}.local.plugin ] && error_exit "[ERROR] There's no plugin named [${_plugin}]"
    # A plugin can only be installed on an active cluster
@@ -448,7 +605,18 @@ function plugin-uninstall {
    fi
 }
 
+function plugin-uninstall.help {
+  echo "Uninstall a local plugin"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME plugin-uninstall <PLUGIN-NAME>"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 function plugin-list {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
   # List the global plugins and then the local plugins, marking which ones are installed
   [[ ! -d "$PLUGINS_DIR" ]] && error_exit error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
   for i in `ls $PLUGINS_DIR/*.local.plugin`
@@ -465,37 +633,56 @@ function plugin-list {
    done
 }
 
+function plugin-list.help {
+  echo "List all the available plugins."
+  echo ""
+  echo "Plugins are locate in $PLUGINS_DIR and can be local or global"
+  echo " - Global plugins are always available"
+  echo " - Local plugins need to be installed via plugin-install command"
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME plugin-list"
+  echo ""
+  echo "See the documentation at $DOC"
+}
 
 function help {
-        echo "Valid commands:"
-        echo "  oc-cluster up [profile] [OPTIONS]"
-        echo "  oc-cluster down"
-        echo "  oc-cluster destroy [profile]"
-        echo "  oc-cluster list"
-        echo "  oc-cluster status"
-        echo "  oc-cluster ssh"
-        echo "  oc-cluster console"
-        echo "  oc-cluster completion bash"
-        echo "  oc-cluster plugin-install <plugin>"
-        echo "  oc-cluster plugin-uninstall <plugin>"
-        echo "  oc-cluster plugin-list"
-        # Help for global plugins
-        [[ ! -d "$PLUGINS_DIR" ]] && error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
-        for i in $PLUGINS_DIR/*.global.plugin
-        do
-          local _filename=$(basename "$i")
-          local _script=${_filename%%.*}
-          ${_script}.help
-        done
-        # Help for installed plugins in the active profile
-        if [ "$(activeProfile)" != "" ]; then
-           for i in $(find $(profileDir)/plugins -type f -name \*.local.plugin)
-           do
-             local _filename=$(basename "$i")
-             local _script=${_filename%%.*}
-             ${_script}.help
-           done
-        fi
+  echo "Usage:"
+  echo " $SCRIPT_NAME -h"
+  echo ""
+  echo "Available Commands:"
+  echo ""
+  echo "  oc-cluster up [profile] [OPTIONS]"
+  echo "  oc-cluster down"
+  echo "  oc-cluster destroy [profile]"
+  echo "  oc-cluster list"
+  echo "  oc-cluster status"
+  echo "  oc-cluster ssh"
+  echo "  oc-cluster console"
+  echo "  oc-cluster completion bash"
+  echo "  oc-cluster plugin-install <plugin>"
+  echo "  oc-cluster plugin-uninstall <plugin>"
+  echo "  oc-cluster plugin-list"
+  # Help for global plugins
+  [[ ! -d "$PLUGINS_DIR" ]] && error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
+  for i in $PLUGINS_DIR/*.global.plugin
+  do
+    local _filename=$(basename "$i")
+    local _script=${_filename%%.*}
+    ${_script}.help
+  done
+  # Help for installed plugins in the active profile
+  if [ "$(activeProfile)" != "" ]; then
+    for i in $(find $(profileDir)/plugins -type f -name \*.local.plugin)
+    do
+      local _filename=$(basename "$i")
+      local _script=${_filename%%.*}
+      ${_script}.help
+    done
+  fi
+  echo ""
+  echo ""
+  echo "See the documentation at $DOC"
 }
 
 #
@@ -559,7 +746,7 @@ then
       -h|--help)
         help
         ;;
-     --*)
+      --*)
         shift
         ${key:2}.execute  "$@"
         ;;
