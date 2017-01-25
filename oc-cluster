@@ -40,6 +40,7 @@ OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
 OC_CLUSTER_PREFILL_PVS=${OC_CLUSTER_PREFILL_PVS:-10}
+OC_CLUSTER_TZ=${OC_CLUSTER_TZ:-$(date +%Z)}
 
 OS_DEFAULT_USER="developer"
 OS_DEFAULT_PROJECT="myproject"
@@ -235,6 +236,7 @@ function up {
       CMDLINE+=" --host-pv-dir $OPENSHIFT_HOST_PV_DIR"
     fi
     CMDLINE+=" --use-existing-config"
+    CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
     # TODO: If --version not specified, detect client version and use that one
     # TODO: If --registry not specified, detect client version and use that one
     CMDLINE+=" $@"
