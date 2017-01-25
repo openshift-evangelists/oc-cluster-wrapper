@@ -5,6 +5,18 @@ function volumes.help {
    echo "  oc-cluster create-volume volumeName [size|10Gi] [path|$HOME/.oc/profiles/<profile>/volumes/<volumeName>]"
    echo "  oc-cluster create-shared-volume project/volumeName [size|10Gi] [path|$HOME/.oc/volumes/<volumeName>]"
 }
+function internal.setup_pv_dir {
+  local dir="${1}"
+  if [[ ! -d "${dir}" ]]; then
+    mkdir -p "${dir}"
+  fi
+  if [[ "$__PLATFORM" == "linux" ]]; then
+    if ! chcon -t svirt_sandbox_file_t "${dir}" &> /dev/null; then
+      echo "Not setting SELinux content for ${dir}"
+    fi
+  fi
+  chmod 770 "${dir}"
+}
 
 function create-volume {
   [ $# -lt 1 ] && echo "volumename is required" && exit 1
@@ -17,8 +29,7 @@ function create-volume {
 
   oc get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
 
-  # Gives 777 permisions to the folder, otherwise non-root cannot write on it
-  mkdir -m 777 -p $__path
+  internal.setup_pv_dir $__path
 
 cat <<-EOF > /tmp/pv.yaml
 apiVersion: v1
@@ -30,8 +41,9 @@ spec:
     storage: ${__size}
   accessModes:
     - ReadWriteOnce
+    - ReadOnlyMany
     - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
+  persistentVolumeReclaimPolicy: Recycle
   hostPath:
     path: ${__path}
 EOF
@@ -61,7 +73,7 @@ function create-shared-volume {
 
   [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
 
-  mkdir -p $__path
+  internal.setup_pv_dir $__path
 
   oc get persistentvolume ${__volume} -n $__project --as=system:admin &>/dev/null && error_exit "The PersistentVolume already exits"
 
@@ -75,6 +87,7 @@ spec:
     storage: ${__size}
   accessModes:
     - ReadWriteOnce
+    - ReadOnlyMany
     - ReadWriteMany
   claimRef:
     apiVersion: v1
