@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+#
+function imagestreams.describe {
+  echo "Replace default Image Streams with Red Hat Image Streams"
+  user.help
+}
+
+
+function imagestreams.help {
+  echo "  oc-cluster imagestreams"
+
+}
+
+function imagestreams.install {
+  # Delete Default Streams
+  oc delete is -n openshift --all --as=system:admin
+
+  # RHEL7
+  oc create -n openshift -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/image-streams/image-streams-rhel7.json --as=system:admin
+
+  # JBoss
+  oc create -n openshift -f https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json --as=system:admin
+
+  # Fuse
+  oc create -n openshift -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/xpaas-streams/fis-image-streams.json --as=system:admin
+}
+
+function imagestreams.uninstall {
+  echo "Not implemented"
+}
+
+imagestreams.describe

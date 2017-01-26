@@ -1,0 +1,38 @@
+#!/bin/bash
+# Every plugin needs to have:
+# - A help method describing what the plugin does
+# - An execute method that will have the logic of the plugin, or any other method
+#   that will be called by name, with all the parameters passed to the plugin
+#
+# If the plugin provides different functions, they can be called by name.
+# As an example:
+#   myplugin.plugin description
+#
+#   myplugin.plugin add-user <username> <role>
+#
+#   myplugin.plugin execute
+#
+
+function nexus3.describe {
+  echo "Installs a Nexus 3 repository manager in a nexus project"
+}
+
+function nexus3.help {
+   :
+}
+
+function nexus3.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+  oc adm new-project nexus --as=system:admin
+  create-shared-volume 'nexus/nexus-data'
+  oc create -f https://raw.githubusercontent.com/OpenShiftDemos/nexus/master/nexus3-persistent-template.yaml -n nexus --as=system:admin
+  oc new-app nexus3-persistent -p VOLUME_CAPACITY=10Gi -n nexus --as=system:admin
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n nexus
+  echo "Project 'nexus' has been created and shared with you. It has a Nexus instance that has shared storage with other clusters"
+}
+
+function nexus3.uninstall {
+   echo "TODO Uninstall"
+}
+
+nexus3.describe
