@@ -2,32 +2,102 @@
 #
 #
 function imagestreams.describe {
-  echo "Replace default Image Streams with Red Hat Image Streams"
+  echo "Replace default Image Streams with Red Hat Image Streams and add the default Template definitions for all Red Hat xPaaS products."
+  echo "Master GitHub Repository at https://github.com/openshift/openshift-ansible/tree/master/roles/openshift_examples/files/examples"
   user.help
 }
 
 
 function imagestreams.help {
   echo "  oc-cluster imagestreams"
-
 }
 
 function imagestreams.install {
+  # Version points to the current template / image stream version
+  # v1.3: OpenShift Container Platform 3.3
+  # v1.4: OpenShift Container Platform 3.4
+  # V1.5: OpenShift Container Platform 3.5 ...
+
+  VERSION=v1.4
+  IMAGESTREAMDIR=https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${VERSION}/image-streams
+  XPAASSTREAMDIR=https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${VERSION}/xpaas-streams
+  XPAASTEMPLATESDIR=https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${VERSION}/xpaas-templates
+  DBTEMPLATESDIR=https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${VERSION}/db-templates
+  QSTEMPLATESDIR=https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${VERSION}/quickstart-templates
+
   # Delete Default Streams
   oc delete is -n openshift --all --as=system:admin
 
-  # RHEL7
-  oc create -n openshift -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/image-streams/image-streams-rhel7.json --as=system:admin
+  # Delete Default Templates
+  oc delete template -n openshift --all --as=system:admin
 
-  # JBoss
-  oc create -n openshift -f https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json --as=system:admin
+  # ---- Now Install RHEL Based Image Streams
+  # -----------------------------------------
+  # RHEL7 Base Images
+  oc create -n openshift -f $IMAGESTREAMDIR/image-streams-rhel7.json --as=system:admin
 
-  # Fuse
-  oc create -n openshift -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/xpaas-streams/fis-image-streams.json --as=system:admin
+  # dotNet Image Streams
+  oc create -n openshift -f $IMAGESTREAMDIR/dotnet_imagestreams.json --as=system:admin
+
+  # xPaaS Image Streams
+  oc create -n openshift -f $XPAASSTREAMDIR/jboss-image-streams.json --as=system:admin
+  oc create -n openshift -f $XPAASSTREAMDIR/fis-image-streams.json --as=system:admin
+
+  # Database Templates
+  #
+  DATABASES="mariadb mongodb mysql postgresql redis"
+  for DB in $DATABASES; do
+    oc create -n openshift -f $DBTEMPLATESDIR/$DB-ephemeral-template.json --as=system:admin
+    oc create -n openshift -f $DBTEMPLATESDIR/$DB-persistent-template.json --as=system:admin
+  done;
+
+  # QuickStart Templates
+  QUICKSTART_TEMPLATES="cakephp-mysql dancer-mysql django-postgresql jenkins-ephemeral-template jenkins-persistent-template nodejs-mondodb rails-postgresql"
+  for QS in $QUICKSTART_TEMPLATES; do
+    oc create -n openshift -f $QSTEMPLATESDIR/$QS.json --as=system:admin
+  done;
+
+  # xPaaS Templates
+  AMQ_TEMPLATES="amq62-basic amq62-persistent-ssl amq62-persistent amq62-ssl"
+  DATAGRID_TEMPLATES="datagrid65-basic datagrid65-https datagrid65-mysql-persistent datagrid65-mysql datagrid65-postgresql-persistent datagrid65-postgresql"
+  DATAVIRT_TEMPLATES="datavirt63-basic-s2i datavirt63-extensions-support-s2i datavirt63-secure-s2i"
+  DECISIONSERVER_TEMPLATES="decisionserver62-amq-s2i decisionserver62-basic-s2i decisionserver62-https-s2i decisionserver63-amq-s2i decisionserver63-basic-s2i decisionserver63-https-s2i"
+  EAP_TEMPLATES="eap64-amq-persistent-s2i eap64-amq-s2i eap64-basic-s2i eap64-https-s2i eap64-mongodb-persistent-s2i eap64-mongodb-s2i eap64-mysql-persistent-s2i eap64-mysql-s2i eap64-postgresql-persistent-s2i eap64-postgresql-s2i eap64-sso-s2i eap70-amq-persistent-s2i eap70-amq-s2i eap70-basic-s2i eap70-https-s2i eap70-mongodb-persistent-s2i eap70-mongodb-s2i eap70-mysql-persistent-s2i eap70-mysql-s2i eap70-postgresql-persistent-s2i eap70-postgresql-s2i eap70-sso-s2i"
+  JWS30_TEMPLATES="jws30-tomcat7-basic-s2i jws30-tomcat7-https-s2i jws30-tomcat7-mongodb-persistent-s2i jws30-tomcat7-mongodb-s2i jws30-tomcat7-mysql-persistent-s2i jws30-tomcat7-mysql-s2i jws30-tomcat7-postgresql-persistent-s2i jws30-tomcat7-postgresql-s2i jws30-tomcat8-basic-s2i jws30-tomcat8-https-s2i jws30-tomcat8-mongodb-persistent-s2i jws30-tomcat8-mongodb-s2i jws30-tomcat8-mysql-persistent-s2i jws30-tomcat8-mysql-s2i jws30-tomcat8-postgresql-persistent-s2i jws30-tomcat8-postgresql-s2i"
+  PROCESS_SERVER_TEMPLATES="processserver63-amq-mysql-persistent-s2i processserver63-amq-mysql-s2i processserver63-amq-postgresql-persistent-s2i processserver63-amq-postgresql-s2i processserver63-basic-s2i processserver63-mysql-persistent-s2i processserver63-mysql-s2i processserver63-postgresql-persistent-s2i processserver63-postgresql-s2i"
+  SSO70_TEMPLATES="sso70-https sso70-mysql-persistent sso70-mysql sso70-postgresql-persistent sso70-postgresql"
+  for TEMPLATE in $AMP_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $DATAGRID_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $DATAVIRT_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $DECISIONSERVER_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $EAP_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $JWS30_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $PROCESS_SERVER_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
+  for TEMPLATE in $SSO70_TEMPLATES; do
+    oc create -n openshift -f $XPAASTEMPLATESDIR/$TEMPLATE.json --as=system:admin
+  done;
 }
 
 function imagestreams.uninstall {
-  echo "Not implemented"
+  # Delete Image Streams
+  oc delete is -n openshift --all --as=system:admin
+
+  # Delete Templates
+  oc delete template -n openshift --all --as=system:admin
 }
 
 imagestreams.describe
