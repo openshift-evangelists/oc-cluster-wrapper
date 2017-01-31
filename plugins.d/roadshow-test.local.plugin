@@ -14,6 +14,7 @@ function roadshow-test.install {
 
   # Prepull the images
   docker pull centos/ruby-23-centos7:latest
+  docker pull centos/mongodb-32-centos7:latest
   docker pull docker.io/openshiftroadshow/parksmap:1.0.0
   docker pull jorgemoralespou/s2i-java:latest
   docker pull registry.access.redhat.com/jboss-eap-7/eap70-openshift:latest
