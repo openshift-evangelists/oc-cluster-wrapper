@@ -1,0 +1,46 @@
+#!/bin/bash
+
+function roadshow-test2.describe {
+  echo "Installs the RoadShow environment in a roadshow project"
+}
+
+function roadshow-test2.help {
+   echo ""
+}
+
+function roadshow-test2.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+
+
+  # Prepull the images
+  docker pull centos/ruby-23-centos7:latest
+  docker pull centos/mongodb-32-centos7:latest
+  docker pull docker.io/openshiftroadshow/parksmap:1.0.0
+  docker pull jorgemoralespou/s2i-java:latest
+  docker pull registry.access.redhat.com/jboss-eap-7/eap70-openshift:latest
+
+  oc new-project roadshow 
+
+  # create the lab guide
+  oc new-app ruby~https://github.com/openshift-evangelists/openshift-workshops.git#1.0.0 --name labs -e DEFAULT_LAB=roadshow
+  oc expose svc/labs --hostname=labs.$(domainSuffix)
+  # Lab, deploy docker image
+  oc policy add-role-to-user view -z default
+  oc new-app docker.io/openshiftroadshow/parksmap:1.0.0 --name parksmap
+  oc expose svc/parksmap
+  # Deploy Nationalparks backend
+  oc create -f https://raw.githubusercontent.com/openshift-roadshow/nationalparks/1.0.0/ose3/application-template.json
+  oc new-app nationalparks -p APPLICATION_HOSTNAME=nationalparks-roadshow.$(domainSuffix)
+  # Deploy mlbparks
+  oc create -f https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json -n openshift --as=system:admin
+  oc create -f https://raw.githubusercontent.com/openshift-roadshow/mlbparks/1.0.0/ose3/application-template-eap.json
+  oc new-app mlbparks -p MONGODB_APPLICATION_NAME=mongodb -p APPLICATION_HOSTNAME=mlbparks-roadshow.$(domainSuffix)
+
+  echo "[INFO] Project roadshow has been created and shared with you. It has all the roadshow apps deployed for testing purposes."
+}
+
+function roadshow-test2.uninstall {
+      oc delete project/roadshow --as=system:admin
+}
+
+roadshow-test2.describe
