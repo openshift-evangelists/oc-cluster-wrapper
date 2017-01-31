@@ -229,7 +229,7 @@ function up {
     # Build command line
     local CMDLINE="oc cluster up"
     CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
-    CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
+    [ ! -z $OC_CLUSTER_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
     CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
     CMDLINE+=" --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR"
     if supports pv; then
@@ -290,11 +290,13 @@ function up {
 
     # Add a label to the created images so that can be removed with the cluster
     echo "-- Adding an oc-profile=${_profile} label to every generated image so they can be later removed"
+    # TODO: Add oc-version once I set up the versions
     configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" &> /dev/null
     markRestart
     echo "[INFO] Cluster created succesfully"
   else
     echo "[INFO] Running a previously created cluster"
+    #TODO: Verify that charateristics that the command line the cluster created the profile are valid, like creating a cluster with 1.5 and pv and then downgrading the client to 1.4 and not starting again.
     # Just start the cluster
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run) $@"
     . $OPENSHIFT_PROFILES_DIR/$_profile/run "$@"
