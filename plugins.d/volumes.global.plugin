@@ -15,7 +15,7 @@ function internal.setup_pv_dir {
       echo "Not setting SELinux content for ${dir}"
     fi
   fi
-  chmod 770 "${dir}"
+  chmod 777 "${dir}"
 }
 
 function create-volume {
