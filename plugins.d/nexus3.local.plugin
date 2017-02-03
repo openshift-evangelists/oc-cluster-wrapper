@@ -14,11 +14,11 @@
 #
 
 function nexus3.describe {
-  echo "Installs a Nexus 3 repository manager in a nexus project"
+  echo "Installs a Nexus 3 repository manager in a nexus project."
 }
 
 function nexus3.help {
-   :
+  echo "oc-cluster plugin-install nexus3"
 }
 
 function nexus3.install {
@@ -28,7 +28,7 @@ function nexus3.install {
   oc create -f https://raw.githubusercontent.com/OpenShiftDemos/nexus/master/nexus3-persistent-template.yaml -n nexus --as=system:admin
   oc new-app nexus3-persistent -p VOLUME_CAPACITY=10Gi -n nexus --as=system:admin
   oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n nexus
-  echo "Project 'nexus' has been created and shared with you. It has a Nexus instance that has shared storage with other clusters"
+  echo "Project 'nexus' has been created and shared with you. It has a Nexus instance that has shared storage with other clusters."
 }
 
 function nexus3.uninstall {
