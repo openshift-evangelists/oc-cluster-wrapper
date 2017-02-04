@@ -27,7 +27,7 @@ if [[ "$__PLATFORM" == "linux" ]]; then
   __DOCKER0_IP=$(which-ip docker0)
   echo "Using Docker0 ($__DOCKER0_IP) ip as external cluster and router address"
   OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-${__DOCKER0_IP}}
-  OC_CLUSTER_ROUTING_SUFFIX=apps.${OC_CLUSTER_PUBLIC_HOSTNAME:-${__DOCKER0_IP}.xip.io}
+  OC_CLUSTER_ROUTING_SUFFIX=apps.${OC_CLUSTER_PUBLIC_HOSTNAME:-${__DOCKER0_IP}}.xip.io
   EXTRA_OPTS="--forward-ports=false"
 fi
 
