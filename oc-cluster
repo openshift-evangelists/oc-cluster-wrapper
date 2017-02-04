@@ -6,7 +6,14 @@ SCRIPT_NAME=`basename "$0"`
 function which-ip { /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'; }
 #
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Handle source locations that might be a symlink (ref: http://bit.ly/2kcvSCS)
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 __PLATFORM='unknown'
 __UNAMESTR=$(uname)
@@ -18,7 +25,7 @@ fi
 
 # Platform unknown
 if [[ "$__PLATFORM" == "unknown" ]]; then
-  echo "Unkown platform: script should exit" && exit 1
+  echo "Unknown platform: script should exit" && exit 1
 fi
 
 # Platform linux
@@ -222,6 +229,7 @@ function up {
     mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
     mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
     mkdir -p $OPENSHIFT_HOST_PV_DIR
+
     # Save hostname and suffix
     echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
     echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
