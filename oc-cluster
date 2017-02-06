@@ -380,7 +380,7 @@ function down {
   echo "Bringing the cluster down"
   oc cluster down
   # TODO: Check if the cluster is DEV cluster
-  docker rm -f bindmountproxy
+  docker rm -f bindmountproxy 2&> /dev/null
   rm -f $OPENSHIFT_HOME_DIR/active_profile
 }
 
