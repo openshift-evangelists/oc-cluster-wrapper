@@ -194,7 +194,23 @@ function supports {
 #
 #
 #
+function up-dev {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
 
+  # Execute the dev stuff
+  local IP=$(openshift start --print-ip 2&> /dev/null)
+
+  [ -z $IP ] && echo "OpenShift development binary can not be properly started" && return 0
+
+  docker run --privileged --net=host -v /var/run/docker.sock:/var/run/docker.sock -d --name=bindmountproxy cewong/bindmountproxy proxy ${IP}:2375 $(which openshift)
+  sleep 2
+  local docker_host=tcp://${IP}:2375
+  DEV_DOCKER_HOST=${docker_host}
+
+  # TODO: Add a function to mark the cluster as dev
+  # Call up
+  up "$*"
+}
 
 function up {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
@@ -233,6 +249,7 @@ function up {
     # Save hostname and suffix
     echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
     echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
+    echo "$DEV_DOCKER_HOST" > $OPENSHIFT_PROFILES_DIR/$_profile/dev
 
     # Build command line
     local CMDLINE="oc cluster up"
@@ -253,7 +270,12 @@ function up {
 
     echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
-    $CMDLINE
+    if [ ! -z $DEV_DOCKER_HOST ]; then
+      echo "Running in developer mode, using DOCKER_HOST=$DEV_DOCKER_HOST"
+      DOCKER_HOST=$DEV_DOCKER_HOST $CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST
+    else
+      $CMDLINE
+    fi
 
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
@@ -357,6 +379,8 @@ function down {
   status &> /dev/null || return
   echo "Bringing the cluster down"
   oc cluster down
+  # TODO: Check if the cluster is DEV cluster
+  docker rm -f bindmountproxy
   rm -f $OPENSHIFT_HOME_DIR/active_profile
 }
 
@@ -725,6 +749,10 @@ if [[ $# -gt 0 ]]
 then
    key="$1"
    case $key in
+      up-dev)
+       shift # past argument
+       up-dev "$@"
+       ;;
       up)
         shift # past argument
         up "$@"
