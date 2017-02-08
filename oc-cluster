@@ -198,7 +198,7 @@ function up-dev {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
 
   # Execute the dev stuff
-  local IP=$(openshift start --print-ip 2&> /dev/null)
+  local IP=$(openshift start --print-ip 2> /dev/null)
 
   [ -z $IP ] && echo "OpenShift development binary can not be properly started" && return 0
 
