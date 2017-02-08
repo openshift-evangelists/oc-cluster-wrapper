@@ -1,0 +1,65 @@
+#!/bin/bash
+
+function registry-console.describe {
+   echo "Installs registry console on the openshift cluster"
+}
+
+function registry-console.help {
+   :
+}
+
+
+function registry-console.install {
+  echo "Installing registry console"
+
+  local __version=$(oc version|grep openshift |grep -oP "v\d{1}\.\d{1}")
+  local __mode
+
+  if [[ "${__version}" =~ ^v1.[0-9]$  ]]; then 
+     __mode=origin; 
+  else 
+     __mode=enterprise; 
+  fi
+
+  if [ "${__mode}" == "enterprise" ]
+  then
+     # Match with kubernetes version
+     case ${__version} in
+     v3.3)
+        __version="v1.3";
+     ;;
+     v3.4)
+        __version="v1.4";
+     ;;
+     esac
+  fi
+
+  echo "Mode: ${__mode}, version ${__version}"
+
+  # docker pull ${__image_prefix}registry-console:${__version}
+
+  oc create -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_hosted_templates/files/${__version}/${__mode}/registry-console.yaml -n openshift --as=system:admin
+  oc create route passthrough --service docker-registry -n default --as=system:admin
+  oc create route passthrough --service registry-console --port registry-console -n default --as=system:admin
+  local __registry_host=$(oc get route docker-registry -o jsonpath='https://{.spec.host}' -n default --as=system:admin)
+  local __cockpit_kube_url=$(oc get route registry-console -o jsonpath='https://{.spec.host}' -n default --as=system:admin)
+  oc delete route docker-registry
+
+  oc new-app --template=registry-console \
+    -p OPENSHIFT_OAUTH_PROVIDER_URL=https://${OC_CLUSTER_PUBLIC_HOSTNAME}:8443 \
+    -p REGISTRY_HOST=${__registry_host} \
+    -p COCKPIT_KUBE_URL=${__cockpit_kube_url} \
+    -n default --as=system:admin
+}
+
+
+function registry-console.uninstall {
+  oc delete template/registry-console -n openshift --as=system:admin
+  for __obj in route/registry-console dc/registry-console svc/registry-console is/registry-console oauthclient/cockpit-oauth-client
+  do
+     oc delete ${__obj} -n default --as=system:admin
+  done
+}
+
+registry-console.describe
+
