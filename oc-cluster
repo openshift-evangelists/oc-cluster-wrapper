@@ -3,8 +3,6 @@
 DOC="https://github.com/openshift-evangelists/oc-cluster-wrapper/blob/master/README.adoc"
 SCRIPT_NAME=`basename "$0"`
 # Helpers, maybe worth in another file
-function which-ip { /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'; }
-#
 
 # Handle source locations that might be a symlink (ref: http://bit.ly/2kcvSCS)
 SOURCE="${BASH_SOURCE[0]}"
@@ -38,6 +36,17 @@ if [[ "$__PLATFORM" == "linux" ]]; then
   EXTRA_OPTS="--forward-ports=false"
 fi
 
+# Determine the version and type of client
+__VERSION=$(oc version --request-timeout=1 | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+if [[ "${__VERSION}" =~ ^v1.[0-9]$  ]]; then
+    __TYPE="ocp"
+    __IMAGE="registry.access.redhat.com/openshift3/ose"
+  else
+    __TYPE="origin"
+    __IMAGE="openshift/origin"
+fi
+echo "Using client for $__TYPE $__VERSION"
+
 USER="$(id -u)"
 GROUP="$(id -g)"
 
@@ -48,6 +57,9 @@ OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
 OC_CLUSTER_PREFILL_PVS=${OC_CLUSTER_PREFILL_PVS:-10}
 OC_CLUSTER_TZ=${OC_CLUSTER_TZ:-$(date +%Z)}
+OC_CLUSTER_MOUNTS=${OC_CLUSTER_MOUNTS:-$DIR/mounts.json}
+# Variables for Developer mode
+M2_HOME=${M2_HOME:-$HOME/.m2/repository}
 
 OS_DEFAULT_USER="developer"
 OS_DEFAULT_PROJECT="myproject"
@@ -61,6 +73,13 @@ OS_DEFAULT_PROJECT="myproject"
 #
 __RESTART=0
 
+function which-ip {
+  if [[ "$__PLATFORM" == "linux" ]]; then
+    /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'
+  elif [[ "$__PLATFORM" == "macosx" ]]; then
+    docker run --net=host --rm $__IMAGE:$__VERSION start --print-ip 2> /dev/null
+  fi
+}
 
 function markRestart {
    # Just set a restart flag
@@ -189,29 +208,23 @@ function supports {
   fi
 }
 
+#
+#
+function replace_tokens {
+  local fileIn=$1
+  local fileOut=$2
+
+eval "cat <<EOF
+$(<$fileIn)
+EOF
+" 2> /dev/null > $fileOut
+}
+
 ##################
 #
 #
 #
 #
-function up-dev {
-  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
-
-  # Execute the dev stuff
-  local IP=$(openshift start --print-ip 2&> /dev/null)
-
-  [ -z $IP ] && echo "OpenShift development binary can not be properly started" && return 0
-
-  docker run --privileged --net=host -v /var/run/docker.sock:/var/run/docker.sock -d --name=bindmountproxy cewong/bindmountproxy proxy ${IP}:2375 $(which openshift)
-  sleep 2
-  local docker_host=tcp://${IP}:2375
-  DEV_DOCKER_HOST=${docker_host}
-
-  # TODO: Add a function to mark the cluster as dev
-  # Call up
-  up "$*"
-}
-
 function up {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
 
@@ -226,6 +239,26 @@ function up {
     _profile="default"
   else
     shift # Remove profile name
+  fi
+
+  # If there is a mounts.json file then we want to start
+  # the cluster in DEVELOPMENT_MODE
+  if [ -e $DIR/mounts-template.json ]
+  then
+    # Execute the dev stuff
+    local IP=$(which-ip)
+
+    if [ ! -z $IP ]
+    then
+      # Generate the $DIR/mounts.json with processed tokens
+      replace_tokens $DIR/mounts-template.json $DIR/mounts.json
+
+      docker run --privileged --net=host -v /var/run/docker.sock:/var/run/docker.sock -v $DIR:/opt/ -d -e PROXY_CONFIG=/opt/mounts.json --name=bindmountproxy cewong/bindmountproxy:envinject proxy ${IP}:2375 2&> /dev/null
+      sleep 2
+      local DEV_DOCKER_HOST=tcp://${IP}:2375
+    else
+      echo "OpenShift could not be started on development mode"
+    fi
   fi
 
   # TODO: If the cluster is already created, do not provision stuff
@@ -272,7 +305,10 @@ function up {
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
     if [ ! -z $DEV_DOCKER_HOST ]; then
       echo "Running in developer mode, using DOCKER_HOST=$DEV_DOCKER_HOST"
-      DOCKER_HOST=$DEV_DOCKER_HOST $CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST
+      if [[ "$__PLATFORM" == "linux" ]]; then
+        CMDLINE="DOCKER_HOST=$DEV_DOCKER_HOST $CMDLINE"
+      fi
+      $CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST
     else
       $CMDLINE
     fi
@@ -329,7 +365,16 @@ function up {
     #TODO: Verify that charateristics that the command line the cluster created the profile are valid, like creating a cluster with 1.5 and pv and then downgrading the client to 1.4 and not starting again.
     # Just start the cluster
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run) $@"
-    . $OPENSHIFT_PROFILES_DIR/$_profile/run "$@"
+    CMDLINE=". $OPENSHIFT_PROFILES_DIR/$_profile/run "$@""
+    if [ ! -z $DEV_DOCKER_HOST ]; then
+      echo "Running in developer mode, using DOCKER_HOST=$DEV_DOCKER_HOST"
+      if [[ "$__PLATFORM" == "linux" ]]; then
+        CMDLINE="DOCKER_HOST=$DEV_DOCKER_HOST $CMDLINE"
+      fi
+      $CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST
+    else
+      $CMDLINE
+    fi
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
@@ -370,6 +415,7 @@ function up.help {
 
 function cleanupClusterAndExit() {
   [ "$1" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$1
+  docker rm -f bindmountproxy 2&> /dev/null
   error_exit "[ERROR] There's been an error creating the cluster, the profile [$1] will be removed"
 }
 
@@ -379,7 +425,7 @@ function down {
   status &> /dev/null || return
   echo "Bringing the cluster down"
   oc cluster down
-  # TODO: Check if the cluster is DEV cluster
+  # We always try to delete this container since the condition check could have changed
   docker rm -f bindmountproxy 2&> /dev/null
   rm -f $OPENSHIFT_HOME_DIR/active_profile
 }
@@ -749,10 +795,6 @@ if [[ $# -gt 0 ]]
 then
    key="$1"
    case $key in
-      up-dev)
-       shift # past argument
-       up-dev "$@"
-       ;;
       up)
         shift # past argument
         up "$@"

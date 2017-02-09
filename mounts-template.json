@@ -1,0 +1,31 @@
+{
+  "bindMounts": [
+    {
+      "imagePattern": "openshift/wildfly.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME",
+          "destination": "/opt/app-root/src/.m2/repository"
+        }
+      ]
+    },
+    {
+      "imagePattern": "jorgemoralespou/s2i-java.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME",
+          "destination": "/opt/app-root/src/.m2/repository"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/origin-sti-builder.*",
+      "env": [
+        {
+          "name": "DOCKER_HOST",
+          "value": "tcp://$IP:2375"
+        }
+      ]
+    }
+  ]
+}
