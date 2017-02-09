@@ -416,6 +416,7 @@ function up.help {
 function cleanupClusterAndExit() {
   [ "$1" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$1
   docker rm -f bindmountproxy 2&> /dev/null
+  rm -f $DIR/mounts.json 2&> /dev/null
   error_exit "[ERROR] There's been an error creating the cluster, the profile [$1] will be removed"
 }
 
@@ -427,6 +428,7 @@ function down {
   oc cluster down
   # We always try to delete this container since the condition check could have changed
   docker rm -f bindmountproxy 2&> /dev/null
+  rm -f $DIR/mounts.json 2&> /dev/null
   rm -f $OPENSHIFT_HOME_DIR/active_profile
 }
 
