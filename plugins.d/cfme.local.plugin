@@ -1,0 +1,90 @@
+#!/bin/bash
+
+function cfme.describe {
+   echo "Instance a cloudforms on a new project"
+}
+
+function cfme.help {
+   :
+}
+
+function cfme.install {
+   # TODO: Check if required ServiceAccount and permisions are granted. If not, call metrics-infra.install
+
+   oc new-project cfme --description='Cloudforms Project' --display-name='cloudform'
+   oc adm policy add-scc-to-user privileged system:serviceaccount:cfme:default --as=system:admin
+
+   #create-volume cfme-pgdb-volume
+   #create-volume cfme-app-volume
+
+   oc create -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/cfme-templates/cfme-template.yaml -n openshift --as=system:admin
+   oc new-app --template=cloudforms -n cfme
+}
+
+function metrics-infra.install {
+
+oc new-project management-infra --description="Management Infrastructure" --as=system:admin
+
+oc create -n management-infra --as=system:admin -f - << EOF
+  apiVersion: v1
+  kind: ClusterRole
+  metadata:
+    name: management-infra-admin
+  rules:
+  - resources:
+    - pods/proxy
+    verbs:
+    - '*'
+EOF
+
+oc create -n management-infra --as=system:admin -f - << EOF
+  apiVersion: v1
+  kind: ClusterRole
+  metadata:
+    name: hawkular-metrics-admin
+  rules:
+  - apiGroups:
+    - ""
+    resources:
+    - hawkular-metrics
+    - hawkular-alerts
+    verbs:
+    - '*'
+EOF
+
+oc create -n management-infra --as=system:admin -f - << EOF
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: management-admin
+EOF
+
+oc create -n management-infra --as=system:admin -f - << EOF
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: inspector-admin
+EOF
+
+oc adm policy add-role-to-user -n management-infra admin -z management-admin --as=system:admin
+oc adm policy add-role-to-user -n management-infra management-infra-admin -z management-admin --as=system:admin
+oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:management-infra:management-admin --as=system:admin
+oc adm policy add-scc-to-user privileged system:serviceaccount:management-infra:management-admin --as=system:admin
+oc adm policy add-cluster-role-to-user system:image-puller system:serviceaccount:management-infra:inspector-admin --as=system:admin
+oc adm policy add-scc-to-user privileged system:serviceaccount:management-infra:inspector-admin --as=system:admin
+oc adm policy add-cluster-role-to-user self-provisioner system:serviceaccount:management-infra:management-admin --as=system:admin
+oc adm policy add-cluster-role-to-user hawkular-metrics-admin system:serviceaccount:management-infra:management-admin --as=system:admin
+oc adm policy add-cluster-role-to-user system:image-auditor system:serviceaccount:management-infra:management-admin --as=system:admin
+
+}
+
+
+function cfme.uninstall {
+   #oc delete pv cfme-pgdb-volume --as=system:admin
+   #oc delete pv cfme-app-volume --as=system:admin
+
+   oc delete project cfme
+}
+
+cfme.describe
+
