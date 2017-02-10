@@ -12,6 +12,7 @@ function cfme.help {
 }
 
 function cfme.install {
+
    # TODO: Check if required ServiceAccount and permisions are granted. If not, call metrics-infra.install
    metrics-infra.install
 
@@ -112,6 +113,7 @@ function cfme.register {
 
   # Register the cluster
   local __token=$(oc sa get-token management-admin -n management-infra --as=system:admin)
+
   curl -s --insecure --user admin:smartvm -X POST -H "Accept: application/json" -o /dev/null -d \
 '{  
   "type": "ManageIQ::Providers::OpenshiftEnterprise::ContainerManager",
@@ -125,7 +127,7 @@ function cfme.register {
      },
      "authentication": {
         "role": "bearer",
-        "auth_key": "${__token}"
+        "auth_key": "'${__token}'"
      }
   },
   {
@@ -136,7 +138,7 @@ function cfme.register {
     },
     "authentication": {
       "role": "hawkular",
-      "auth_key": "${__token}"
+      "auth_key": "'${__token}'"
      }
    }]
 }' \
