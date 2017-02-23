@@ -1,0 +1,49 @@
+#!/bin/bash
+
+__mysql_galera_project=mysql-galera
+__mysql_user=user
+__mysql_password=password
+__mysql_database=userdb
+__mysql_root_password=secret
+
+function mysql-galera.describe {
+   echo "Instance a mysql-galera on a sample project"
+}
+
+function mysql-galera.help {
+   :
+}
+
+function mysql-galera.install {
+
+  oc new-project ${__mysql_galera_project} --description='MySQL Galera Project' --display-name='mysql-galera'
+
+  for __template in mariadb-galera-ephemeral-template.yml mariadb-galera-persistent-template.yml
+  do
+	oc create -f https://raw.githubusercontent.com/adfinis-sygroup/openshift-mariadb-galera/master/${__template} -n ${__mysql_galera_project}
+  done
+
+  oc new-app --template mariadb-galera-persistent \
+     -p NUMBER_OF_GALERA_MEMBERS=3 \
+     -p MYSQL_USER=${__mysql_user} \
+     -p MYSQL_PASSWORD=${__mysql_password} \
+     -p MYSQL_DATABASE=${__mysql_database} \
+     -p MYSQL_ROOT_PASSWORD=${__mysql_root_password}
+
+   oc new-app adminer
+   oc expose svc/adminer
+
+   __adminer_url=$(oc get route adminer -o jsonpath='http://{.spec.host}')
+
+   echo "now access to "${__adminer_url}"?server=galera with user=root and password="${__mysql_root_password}" to manage galera cluster"
+
+}
+
+function mysql-galera.uninstall {
+
+  oc delete project ${__mysql_galera_project}
+
+}
+
+mysql-galera.describe
+
