@@ -13,6 +13,9 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
+# TODO: Add SIGQUIT, SIGTERM, SIGKILL, SIGABRT signal handlers
+trap cleanupClusterAndExit SIGQUIT
+
 __PLATFORM='unknown'
 __UNAMESTR=$(uname)
 if [[ "$__UNAMESTR" == 'Linux' ]]; then
@@ -20,6 +23,14 @@ if [[ "$__UNAMESTR" == 'Linux' ]]; then
 elif [[ "$__UNAMESTR" == 'Darwin' ]]; then
    __PLATFORM='macosx'
 fi
+
+function which-ip {
+  if [[ "$__PLATFORM" == "linux" ]]; then
+    /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'
+  elif [[ "$__PLATFORM" == "macosx" ]]; then
+    docker run --net=host --rm $__IMAGE:$__VERSION start --print-ip 2> /dev/null
+  fi
+}
 
 # Platform unknown
 if [[ "$__PLATFORM" == "unknown" ]]; then
@@ -72,14 +83,6 @@ OS_DEFAULT_PROJECT="myproject"
 #  restartIfRequire
 #
 __RESTART=0
-
-function which-ip {
-  if [[ "$__PLATFORM" == "linux" ]]; then
-    /sbin/ifconfig $1 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'
-  elif [[ "$__PLATFORM" == "macosx" ]]; then
-    docker run --net=host --rm $__IMAGE:$__VERSION start --print-ip 2> /dev/null
-  fi
-}
 
 function markRestart {
    # Just set a restart flag
@@ -181,13 +184,24 @@ function error_exit() {
 }
 
 function domainSuffix {
-   local _suffix=$([ -f $(profileDir)/suffix ] && cat $(profileDir)/suffix)
-   echo "$_suffix"
+  local _suffix=$([ -f $(profileDir)/suffix ] && cat $(profileDir)/suffix)
+  echo "$_suffix"
 }
 
 function bindIP {
-   local _hostname=$([ -f $(profileDir)/hostname ] && cat $(profileDir)/hostname)
-   echo "$_hostname"
+  local _hostname=$([ -f $(profileDir)/hostname ] && cat $(profileDir)/hostname)
+  echo "$_hostname"
+}
+
+function requiresInternet {
+  # Test if there is internet connectivity, else fail
+  echo "Test internet connection"
+  echo -e "GET http://google.com HTTP/1.0\n\n" | nc google.com 80 > /dev/null 2>&1
+  local _connectivity=$?
+  if [ $_connectivity -ne 0 ]; then
+    echo "[ERROR] There is no internet connection. Operation can not be done" && exit 10
+  fi
+  echo "OK"
 }
 
 # Function that tells me if the client used supports some features
@@ -286,7 +300,9 @@ function up {
 
     # Build command line
     local CMDLINE="oc cluster up"
+    # TODO: If --public-hostname
     CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
+    # TODO: If --routing-suffix
     [ ! -z $OC_CLUSTER_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
     CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
     CMDLINE+=" --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR"
@@ -296,10 +312,16 @@ function up {
     CMDLINE+=" --use-existing-config"
     CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
     # TODO: If --version not specified, detect client version and use that one
-    # TODO: If --registry not specified, detect client version and use that one
-    CMDLINE+=" $@"
+    # TODO: If --image not specified, detect client version and use that one
+    # TODO: If --metrics
+    # TODO: If --logging
+    # TODO: If --server_log-level=0
+    # TODO: If -e or --env
+    # TODO: Once all the command line has been processed and swallow. Don't pass additional
+    # args to the CMDLINE
     # TODO: Add support for proxies and image streams, and
     # custom arguments. Do not support anything coming from cluster up
+    CMDLINE+=" $@"
 
     echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
@@ -362,7 +384,9 @@ function up {
     echo "[INFO] Cluster created succesfully"
   else
     echo "[INFO] Running a previously created cluster"
-    #TODO: Verify that charateristics that the command line the cluster created the profile are valid, like creating a cluster with 1.5 and pv and then downgrading the client to 1.4 and not starting again.
+    # TODO: Verify that charateristics that the command line the cluster created the profile are valid, like creating a cluster with 1.5 and pv and then downgrading the client to 1.4 and not starting again.
+    # TODO: Once all the command line has been processed and swallow. Don't pass additional
+    # args to the CMDLINE
     # Just start the cluster
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run) $@"
     CMDLINE=". $OPENSHIFT_PROFILES_DIR/$_profile/run "$@""
