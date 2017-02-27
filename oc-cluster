@@ -892,8 +892,8 @@ function plugin-uninstall.help {
 function plugin-list {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
 
-  # List the global plugins and then the local plugins, marking which ones are installed
-  [[ ! -d "$PLUGINS_DIR" ]] && error_exit error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
+  # List the local plugins, marking which ones are installed
+  [[ ! -d "$PLUGINS_DIR" ]] && error_exit "[ERROR] Plugins directory is missing [$PLUGINS_DIR]. Have you installed the script properly?"
   for i in `ls $PLUGINS_DIR/*.local.plugin`
   do
     local _filename=$(basename "$i")
@@ -949,10 +949,11 @@ function help {
   done
   # Help for installed plugins in the active profile
   if [ "$(activeProfile)" != "" ]; then
-    for i in $(find $(profileDir)/plugins -type f -name \*.local.plugin)
+    for i in `ls $(profileDir)/plugins/*.local.plugin 2> /dev/null`
     do
       local _filename=$(basename "$i")
       local _script=${_filename%%.*}
+      source $i &> /dev/null
       ${_script}.help
     done
   fi
@@ -972,8 +973,8 @@ done
 if [ "$(activeProfile)" != "" ]; then
   # Make sure plugins dir exists (legacy)
   mkdir -p $(profileDir)/plugins
-  for plugin in `ls $(profileDir)/plugins/*.local.plugin &> /dev/null`; do
-    source $plugin
+  for plugin in `ls $(profileDir)/plugins/*.local.plugin 2> /dev/null`; do
+    source $plugin &> /dev/null
   done
 fi
 
@@ -1032,7 +1033,7 @@ then
         ;;
       *)
         shift # past argument
-        $key "$@" 2> /dev/null || echo "Command $key not found"
+        $key "$@"  || echo "Command $key not found"
         ;;
    esac
 else
