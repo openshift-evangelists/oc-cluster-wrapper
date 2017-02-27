@@ -48,7 +48,7 @@ if [[ "$__PLATFORM" == "linux" ]]; then
 fi
 
 # Determine the version and type of client
-__VERSION=$(oc version --request-timeout=1 | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+__VERSION=$(oc version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
 if [[ "${__VERSION}" =~ ^v1.[0-9]$  ]]; then
     __TYPE="ocp"
     __IMAGE="registry.access.redhat.com/openshift3/ose"
@@ -298,12 +298,144 @@ function up {
     echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
     echo "$DEV_DOCKER_HOST" > $OPENSHIFT_PROFILES_DIR/$_profile/dev
 
+    # Parse supported command line, and detect duplicates
+    while [ "${1+defined}" ]; do
+      local _key=$1
+      case $_key in
+        --version=*)
+          [ ! -z "$__PARM_OC_VERSION" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_VERSION="${_key#*=}"
+          shift # past argument
+          ;;
+        --version)
+          [ ! -z "$__PARM_OC_VERSION" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_VERSION="$2"
+          shift 2; # past argument
+          ;;
+        --image=*)
+          [ ! -z "$__PARM_OC_IMAGE" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_IMAGE="${_key#*=}"
+          shift # past argument
+          ;;
+        --image)
+          [ ! -z "$__PARM_OC_IMAGE" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_IMAGE="$2"
+          shift 2; # past argument
+          ;;
+        --logging=*)
+          [ ! -z "$__PARM_OC_LOGGING" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_LOGGING="${_key#*=}"
+          shift # past argument
+          ;;
+        --logging)
+          [ ! -z "$__PARM_OC_LOGGING" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          if [[ "$2" == "true" ]] || [[ "$2" == "false" ]]
+          then
+            __PARM_OC_LOGGING="$2"
+            shift 2; # past argument
+          else
+            __PARM_OC_LOGGING="true"
+            shift; # past argument
+          fi  
+          ;;
+        --metrics=*)
+          [ ! -z "$__PARM_OC_METRICS" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_METRICS="${_key#*=}"
+          shift # past argument
+          ;;
+        --metrics)
+          [ ! -z "$__PARM_OC_METRICS" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          if [[ "$2" == "true" ]] || [[ "$2" == "false" ]]
+          then
+            __PARM_OC_METRICS="$2"
+            shift 2; # past argument
+          else
+            __PARM_OC_METRICS="true"
+            shift; # past argument
+          fi  
+          ;;
+        --http-proxy=*)
+          [ ! -z "$__PARM_OC_HTTP_PROXY" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_HTTP_PROXY="${_key#*=}"
+          shift # past argument
+          ;;
+        --http-proxy)
+          [ ! -z "$__PARM_OC_HTTP_PROXY" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          # TODO: This could be without a value, so check for $2 =true or false, else just shift one
+          __PARM_OC_HTTP_PROXY="$2"
+          shift 2; # past argument
+          ;;
+        --https-proxy=*)
+          [ ! -z "$__PARM_OC_HTTPS_PROXY" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_HTTPS_PROXY="${_key#*=}"
+          shift # past argument
+          ;;
+        --https-proxy)
+          [ ! -z "$__PARM_OC_HTTPS_PROXY" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          # TODO: This could be without a value, so check for $2 =true or false, else just shift one
+          __PARM_OC_HTTPS_PROXY="$2"
+          shift 2; # past argument
+          ;;
+        --no-proxy=*)
+          [ ! -z "$__PARM_OC_NO_PROXY" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_NO_PROXY="${_key#*=}"
+          shift # past argument
+          ;;
+        --no-proxy)
+          [ ! -z "$__PARM_OC_NO_PROXY" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          # TODO: This could be without a value, so check for $2 =true or false, else just shift one
+          __PARM_OC_NO_PROXY="$2"
+          shift 2; # past argument
+          ;;
+        --image-streams=*)
+          [ ! -z "$__PARM_OC_IMAGESTREAMS" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_IMAGESTREAMS="${_key#*=}"
+          shift # past argument
+          ;;
+        --image-streams)
+          [ ! -z "$__PARM_OC_IMAGESTREAMS" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_IMAGESTREAMS="$2"
+          shift 2; # past argument
+          ;;
+        --public-hostname=*)
+          [ ! -z "$__PARM_OC_PUBLIC_HOSTNAME" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_PUBLIC_HOSTNAME="${_key#*=}"
+          shift # past argument
+          ;;
+        --public-hostname)
+          [ ! -z "$__PARM_OC_PUBLIC_HOSTNAME" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_PUBLIC_HOSTNAME="$2"
+          shift 2; # past argument
+          ;;
+        --routing-suffix=*)
+          [ ! -z "$__PARM_OC_ROUTING_SUFFIX" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_ROUTING_SUFFIX="${_key#*=}"
+          shift # past argument
+          ;;
+        --routing-suffix)
+          [ ! -z "$__PARM_OC_ROUTING_SUFFIX" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_ROUTING_SUFFIX="$2"
+          shift 2; # past argument
+          ;; 
+        --use-existing-config|--skip-registry-check|--server-loglevel|--create-machine|--docker-machine|--forward-ports|--host-config-dir|--host-data-dir|--host-pv-dir|--host-volumes-dir)
+          echo "Parameter $_key not supported. Remove it to use this tool"
+          exit 1
+          ;;
+        *)  
+          echo "Parameter $_key not supported. It will not be used"
+          shift
+          ;;
+      esac
+    done
+
     # Build command line
     local CMDLINE="oc cluster up"
-    # TODO: If --public-hostname
-    CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
-    # TODO: If --routing-suffix
-    [ ! -z $OC_CLUSTER_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
+    [ ! -z $__PARM_OC_VERSION ] && CMDLINE+=" --version $__PARM_OC_VERSION" || CMDLINE+=" --version $__VERSION"
+    [ ! -z $__PARM_OC_IMAGE ] && CMDLINE+=" --image $__PARM_OC_IMAGE" || CMDLINE+=" --image $__IMAGE"
+    [ ! -z $__PARM_OC_PUBLIC_HOSTNAME ] && CMDLINE+=" --public-hostname $__PARM_OC_PUBLIC_HOSTNAME" && CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
+    [ ! -z $__PARM_OC_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $__PARM_OC_ROUTING_SUFFIX" && CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
+    [ ! -z $__PARM_OC_METRICS ] && CMDLINE+=" --metrics $__PARM_OC_METRICS"
+    [ ! -z $__PARM_OC_LOGGING ] && CMDLINE+=" --logging $__PARM_OC_LOGGING"
     CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
     CMDLINE+=" --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR"
     if supports pv; then
@@ -311,17 +443,15 @@ function up {
     fi
     CMDLINE+=" --use-existing-config"
     CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
-    # TODO: If --version not specified, detect client version and use that one
-    # TODO: If --image not specified, detect client version and use that one
-    # TODO: If --metrics
-    # TODO: If --logging
+    
     # TODO: If --server_log-level=0
     # TODO: If -e or --env
     # TODO: Once all the command line has been processed and swallow. Don't pass additional
     # args to the CMDLINE
     # TODO: Add support for proxies and image streams, and
     # custom arguments. Do not support anything coming from cluster up
-    CMDLINE+=" $@"
+    echo "$CMDLINE"
+    exit 1
 
     echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
@@ -388,8 +518,8 @@ function up {
     # TODO: Once all the command line has been processed and swallow. Don't pass additional
     # args to the CMDLINE
     # Just start the cluster
-    echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run) $@"
-    CMDLINE=". $OPENSHIFT_PROFILES_DIR/$_profile/run "$@""
+    echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
+    CMDLINE=". $OPENSHIFT_PROFILES_DIR/$_profile/run"
     if [ ! -z $DEV_DOCKER_HOST ]; then
       echo "Running in developer mode, using DOCKER_HOST=$DEV_DOCKER_HOST"
       if [[ "$__PLATFORM" == "linux" ]]; then
@@ -424,8 +554,11 @@ function up.help {
   echo ""
   echo "Available Arguments:"
   echo ""
-  echo "--version"
-  echo "--type='origin': Specify the type of install ocp|origin"
+  echo "--public-hostname='${OC_CLUSTER_PUBLIC_HOSTNAME}': Hostname to expose the master server"
+  echo "--routing-suffix='${OC_CLUSTER_ROUTING_SUFFIX}': Default wildcard dns for your router"
+  echo "--version='${__VERSION}'"
+#  echo "--type='origin': Specify the type of install ocp|origin"
+  echo "--image='openshift/origin': Specify the openshift image to use"
   echo "--image-streams='centos7': Specify which image streams to use, centos7|rhel7"
   echo "--logging=false: If true, install logging (experimental)"
   echo "--metrics=false: If true, install metrics (experimental)"
@@ -584,6 +717,39 @@ function ssh.help {
   echo "See the documentation at $DOC"
 }
 
+function show {
+  [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+
+  local _profile=$1
+  local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
+
+  if [ $# -lt 1 ] && [ "${_active_profile}" == "" ]
+  then
+    error_exit "You need to specify a profile, or have a running cluster"
+  fi
+  [ "$_profile" == "" ] && _profile=$_active_profile
+
+  if [ ! -d "$OPENSHIFT_PROFILES_DIR/$_profile" ]
+  then
+    error_exit "There is no profile named $_profile"
+  fi
+
+  if [ "$_profile" != "" ]
+  then
+     cat $OPENSHIFT_PROFILES_DIR/$_profile/run 2> /dev/null
+  fi
+}
+
+function show.help {
+  echo "Shows the configuration for the current cluster"
+  echo ""
+  echo ""
+  echo "Usage:"
+  echo " $SCRIPT_NAME show [<PROFILE>]"
+  echo ""
+  echo "See the documentation at $DOC"
+}
+
 function console {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
 
@@ -616,7 +782,7 @@ _oc_cluster_completion() {
   cur=${COMP_WORDS[COMP_CWORD]}
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   command="${COMP_WORDS[1]}"
-  commands="up down destroy list status ssh console plugin-list plugin-install plugin-uninstall -h --help"
+  commands="up down destroy list status show ssh console plugin-list plugin-install plugin-uninstall -h --help"
 
   profiles=$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
 
@@ -633,7 +799,7 @@ _oc_cluster_completion() {
   fi
 
   case "$prev" in
-    up|destroy)
+    up|destroy|show)
       COMPREPLY=( $( compgen -W "$profiles" -- $cur ) )
       ;;
   esac
@@ -768,6 +934,7 @@ function help {
   echo "  oc-cluster destroy [profile]"
   echo "  oc-cluster list"
   echo "  oc-cluster status"
+  echo "  oc-cluster show"
   echo "  oc-cluster ssh"
   echo "  oc-cluster console"
   echo "  oc-cluster completion bash"
@@ -835,6 +1002,10 @@ then
         ;;
       list)
         list
+        ;;
+      show)
+        shift
+        show "$@"
         ;;
       status)
         status
