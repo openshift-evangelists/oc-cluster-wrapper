@@ -451,7 +451,6 @@ function up {
     # TODO: Add support for proxies and image streams, and
     # custom arguments. Do not support anything coming from cluster up
     echo "$CMDLINE"
-    exit 1
 
     echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
