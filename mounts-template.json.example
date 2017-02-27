@@ -4,7 +4,7 @@
       "imagePattern": "openshift/wildfly.*",
       "mounts": [
         {
-          "source": "[[M2_HOME]]",
+          "source": "$M2_HOME",
           "destination": "/opt/app-root/src/.m2/repository"
         }
       ]
@@ -13,7 +13,7 @@
       "imagePattern": "jorgemoralespou/s2i-java.*",
       "mounts": [
         {
-          "source": "[[M2_HOME]]",
+          "source": "$M2_HOME",
           "destination": "/opt/app-root/src/.m2/repository"
         }
       ]
@@ -23,7 +23,70 @@
       "env": [
         {
           "name": "DOCKER_HOST",
-          "value": "tcp://[[DOCKER_HOST]]:2375"
+          "value": "tcp://$IP:2375"
+        }
+      ]
+    },
+    {
+      "imagePattern": "(openshift/origin$)|(openshift/origin:.*)",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/origin-deployer.*",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/origin-recycler.*",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/origin-docker-builder.*",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/origin-sti-builder.*",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/origin-f5-router.*",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    },
+    {
+      "imagePattern": "openshift/node.*",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
         }
       ]
     }
