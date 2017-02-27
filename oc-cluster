@@ -432,8 +432,8 @@ function up {
     local CMDLINE="oc cluster up"
     [ ! -z $__PARM_OC_VERSION ] && CMDLINE+=" --version $__PARM_OC_VERSION" || CMDLINE+=" --version $__VERSION"
     [ ! -z $__PARM_OC_IMAGE ] && CMDLINE+=" --image $__PARM_OC_IMAGE" || CMDLINE+=" --image $__IMAGE"
-    [ ! -z $__PARM_OC_PUBLIC_HOSTNAME ] && CMDLINE+=" --public-hostname $__PARM_OC_PUBLIC_HOSTNAME" && CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
-    [ ! -z $__PARM_OC_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $__PARM_OC_ROUTING_SUFFIX" && CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
+    [ ! -z $__PARM_OC_PUBLIC_HOSTNAME ] && CMDLINE+=" --public-hostname $__PARM_OC_PUBLIC_HOSTNAME" || CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
+    [ ! -z $__PARM_OC_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $__PARM_OC_ROUTING_SUFFIX" || CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
     [ ! -z $__PARM_OC_METRICS ] && CMDLINE+=" --metrics $__PARM_OC_METRICS"
     [ ! -z $__PARM_OC_LOGGING ] && CMDLINE+=" --logging $__PARM_OC_LOGGING"
     CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
@@ -450,7 +450,6 @@ function up {
     # args to the CMDLINE
     # TODO: Add support for proxies and image streams, and
     # custom arguments. Do not support anything coming from cluster up
-    echo "$CMDLINE"
 
     echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
