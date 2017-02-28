@@ -26,7 +26,12 @@ fi
 
 function which-ip {
   if [[ "$__PLATFORM" == "linux" ]]; then
-    /sbin/ifconfig docker0 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'
+    if [ -e /sbin/ip ];
+    then
+      /sbin/ip a show dev docker0  | grep "inet " | awk -F: '{print $1}' | awk '{print $2}' | cut -d "/" -f 1;
+    else  
+      /sbin/ifconfig docker0 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'
+    fi
   elif [[ "$__PLATFORM" == "macosx" ]]; then
     docker run --net=host --rm $__IMAGE:$__VERSION start --print-ip 2> /dev/null
   fi
