@@ -1,0 +1,23 @@
+#!/bin/bash
+
+function dotnetIS.describe {
+   echo "Install the latest .net ImageStream"
+}
+
+function dotnetIS.help {
+   :
+}
+
+
+function dotnetIS.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+  requiresInternet
+ 
+  oc create -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.5/image-streams/dotnet_imagestreams.json -n openshift --as=system:admin
+
+}
+
+function dotnetIS.uninstall {
+}
+
+dotnetIS.describe

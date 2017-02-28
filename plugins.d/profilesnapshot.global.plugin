@@ -1,5 +1,7 @@
 #!/bin/bash
 
+OPENSHIFT_SNAPSHOT_DIR=${OPENSHIFT_SNAPSHOT_DIR:-$OPENSHIFT_PROFILES_DIR/snapshots}
+
 function profilesnapshot.help {
    # Select either of the two or both, depending on the functionality provided by the plugin
    echo "  oc-cluster profilesnapshot-list [<profile>]"

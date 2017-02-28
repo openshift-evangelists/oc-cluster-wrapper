@@ -1,0 +1,54 @@
+#!/bin/bash
+
+function oc-client.describe {
+   echo "Creates a project named oc-build where you'll be able to build projects"
+   oc-client.help
+}
+
+
+function oc-client.help {
+  echo "  oc-cluster oc-client-build [<source>] [<ref>] [<platform>]"
+}
+
+
+function oc-client.install {
+  requiresInternet
+  
+  oc adm new-project oc-build --as=system:admin
+
+  oc create -f  https://raw.githubusercontent.com/csrwng/build-origin/master/origin-builder.yaml  -n oc-build --as=system:admin
+
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n oc-build
+  echo "Project 'oc-build' has been created and shared with you. It has a template for building openshift"  
+}
+
+function oc-client.uninstall {
+  oc delete project oc-build --as=system:admin
+}
+
+# Arguments
+#  $1: git repository to build
+#  $2: ref
+#  $3: platform
+#
+function oc-client-build {
+  # TODO: Check parameters
+  local _git=${1:-https://github.com/openshift/origin.git}
+  local _ref=${2:-master}
+#  local _platform=${3:-$__PLATFORM}
+  
+  # TODO: Test if plugin has been properly installed, and if not, install
+  
+  # TODO: Check if the builder has already run and then just rebuild with new params
+
+  local CMDLINE="oc new-app origin-builder"
+  [ ! -z ${_git} ] && CMDLINE+=" -p SOURCE_URL=${_git}" 
+  [ ! -z ${_ref} ] && CMDLINE+=" -p SOURCE_REF=${_ref}"
+  [ ! -z ${_platform} ] && CMDLINE+=" -p SOURCE_REF=${_platform}"
+  CMDLINE+=" -n oc-build --as=system:admin"
+
+  echo "$CMDLINE"
+  $CMDLINE
+}
+
+oc-client.describe

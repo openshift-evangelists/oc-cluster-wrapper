@@ -5,7 +5,7 @@ function cockpit.describe {
 }
 
 function cockpit.help {
-  echo ""
+  :
 }
 
 # The parameters to the plugin will be passed to this function
@@ -14,7 +14,9 @@ function cockpit.help {
 function cockpit.install {
    status &> /dev/null  || error_exit "There's no cluster running"
 
-   docker pull cockpit/kubernetes:latest
+   echo "Installing cockpit/kubernetes:latest"
+   docker pull cockpit/kubernetes:latest 2> /dev/null
+   echo "Done"
 
    oc adm new-project cockpit --as=system:admin
    # Install template
@@ -43,7 +45,7 @@ function cockpit.install {
             "description": "Ip where the master can be located",
             "displayName": "Master's IP",
             "name": "MASTER_IP",
-            "value": "127.0.0.1",
+            "value": "$(bindIP)",
             "required": true
          }
       ],
@@ -99,7 +101,7 @@ function cockpit.install {
                            "env": [
                               {
                                  "name": "OPENSHIFT_OAUTH_PROVIDER_URL",
-                                 "value": "https://${MASTER_IP}:8443"
+                                 "value": "https://\${MASTER_IP}:8443"
                               },
                               {
                                  "name": "OPENSHIFT_OAUTH_CLIENT_ID",
@@ -125,7 +127,7 @@ function cockpit.install {
                            ],
                            "resources": {},
                            "terminationMessagePath": "/dev/termination-log",
-                           "imagePullPolicy": "Always"
+                           "imagePullPolicy": "IfNotPresent"
                         }
                      ],
                      "restartPolicy": "Always",
@@ -171,7 +173,7 @@ function cockpit.install {
                }
             },
             "spec": {
-               "host": "${APPLICATION_HOSTNAME}",
+               "host": "\${APPLICATION_HOSTNAME}",
                "to": {
                   "kind": "Service",
                   "name": "openshift-cockpit"
@@ -194,12 +196,13 @@ function cockpit.install {
             "secret": "usermaBGPqkERbospcYt0ED64DDBtu2Nby1lv1bJbrlpaxwSYlr3nXwGwTdO05sjWlLm",
             "allowAnyScope": true,
             "redirectURIs": [
-               "http://${APPLICATION_HOSTNAME}"
+               "http://\${APPLICATION_HOSTNAME}"
             ]
          }
       ]
    }
 EOF
+
    oc create -f /tmp/cockpit.yaml -n cockpit --as=system:admin
    rm /tmp/cockpit.yaml
 
@@ -209,6 +212,7 @@ EOF
 
 function cockpit.uninstall {
     oc delete project cockpit --as=system:admin
+    oc delete oauthclient/cockpit-oauth --as=system:admin
 }
 
 cockpit.describe
