@@ -61,7 +61,7 @@ if [[ "${__VERSION}" =~ ^v1.[0-9]$  ]]; then
     __TYPE="origin"
     __IMAGE="openshift/origin"
 fi
-echo "Using client for $__TYPE $__VERSION"
+echo "# Using client for $__TYPE $__VERSION"
 
 USER="$(id -u)"
 GROUP="$(id -g)"
@@ -784,34 +784,33 @@ function completion() {
 
   local shell=$1
   [[ $shell != "bash" ]] && echo "Only bash supported for now" && return
-cat << "EOF"
-OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
+cat << EOF
 _oc_cluster_completion() {
   local cur prev command commands profiles cluster_args
   COMPREPLY=()   # Array variable storing the possible completions.
   # TODO: Add "-h --help"
-  cur=${COMP_WORDS[COMP_CWORD]}
-  prev="${COMP_WORDS[COMP_CWORD-1]}"
-  command="${COMP_WORDS[1]}"
+  cur=\${COMP_WORDS[COMP_CWORD]}
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  command="\${COMP_WORDS[1]}"
   commands="up down destroy list status show ssh console plugin-list plugin-install plugin-uninstall -h --help"
 
-  profiles=$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
+  profiles=\$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
 
   boolean_args="--create-machine= --forward-ports= --metrics= --skip-registry-check= --use-existing-config="
-  cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= $boolean_args"
+  cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= \$boolean_args"
   #todo complete these args more
-  [[ "$command" == "up" && $COMP_CWORD -gt 2 ]] && \
-    COMPREPLY=( $( compgen -W "$cluster_args" -- $cur ) ) && \
+  [[ "\$command" == "up" && \$COMP_CWORD -gt 2 ]] && \
+    COMPREPLY=( \$( compgen -W "\$cluster_args" -- \$cur ) ) && \
     return 0
 
-  if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
-    COMPREPLY=( $( compgen -W "$commands" -- $cur ) )
+  if [[ \${cur} == -* || \${COMP_CWORD} -eq 1 ]] ; then
+    COMPREPLY=( \$( compgen -W "\$commands" -- \$cur ) )
     return 0
   fi
 
-  case "$prev" in
+  case "\$prev" in
     up|destroy|show)
-      COMPREPLY=( $( compgen -W "$profiles" -- $cur ) )
+      COMPREPLY=( \$( compgen -W "\$profiles" -- \$cur ) )
       ;;
   esac
 }

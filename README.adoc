@@ -4,6 +4,41 @@
 be productive from a developer's perspective. This script helps developers with their casual/daily worksflows while using
 *oc cluster* as the internal tool.
 
+== Installing
+The easiest way is to clone this repository, so you can just update the script via a *"git pull"* command. But you can always get one of the releases available at
+link:https://github.com/openshift-evangelists/oc-cluster-wrapper/releases[oc-cluster releases].
+
+=== Linux
+On linux (tested on fedora 25):
+
+----
+git clone https://github.com/openshift-evangelists/oc-cluster-wrapper
+echo 'PATH=$HOME/oc-cluster-wrapper:$PATH' >> $HOME/.bash_profile
+echo 'export PATH' >> /home/$HOME/.bash_profile
+----
+
+If you want to add bash completion (you might need to execute this as sudo):
+
+----
+$HOME/oc-cluster completion bash > /etc/bash_completion.d/oc-cluster.bash
+----
+
+=== Mac OS
+
+On mac (tested on fedora 25):
+
+----
+git clone https://github.com/openshift-evangelists/oc-cluster-wrapper
+echo 'PATH=$HOME/oc-cluster-wrapper:$PATH' >> $HOME/.bash_profile
+echo 'export PATH' >> $HOME/.bash_profile
+----
+
+If you want to add bash completion:
+
+----
+$HOME/oc-cluster completion bash > $(brew --prefix)/etc/bash_completion.d/oc-cluster.bash
+----
+
 == What it provides
 This script provides the following enhancements:
 
@@ -139,9 +174,74 @@ We also do two really convenient things for developers:
 
 * We create an *admin/admin* user that will be a *cluster-admin*, so you can login as admin from the web console
 * We add the *sudoer* role to *system:authenticated* so that any user can impersonate *cluster-admin* without needing to change user profiles
+* Provides 10 PV of type hostPath to use (handy for pre 1.5 clients)
+* Label images built with the cluster, so anytime you destroy a cluster, all these images will also be removed.
+* Creates a .kube context to the current cluster with the name of the profile, so succesive startups of the cluster will have the context set.
 
+== Plugins
+The tool provides a plugin mechanism to add functionality. There's 2 types of plugins:
 
-== Convenience methods for working with persistent volumes
+* global plugins. Are always accesible.
+* local plugins. Need to be installed/uninstalled.
+
+Plugins are files in the link:.plugins.d/[plugins.d] directory of the tool. They need to have a name following the pattern <PLUGIN_NAME>.<global|local>.plugin
+
+You can:
+
+* list available plugins: *oc-cluster plugin-list*
+* Install a plugin: *oc-cluster plugin-install <PLUGIN_NAME>*
+* Uninstall a plugin: *oc-cluster plugin-uninstall <PLUGIN_NAME>*
+
+=== Global plugins
+These plugins provide methods that augment the functionality of the tool. 
+
+They are always available (installed). 
+
+There is a template for these plugins available link:.plugins.d/new-plugin.global.plugin[here]
+
+It has to have a method called <PLUGIN_NAME>.help with the description of the commands provided by the plugin, so they can be shown when
+printing the *oc-cluster -h*. 
+
+=== Local plugins
+These plugins provide methods that augment the functionality of the tool, or install software on the cluster. 
+
+These plugins need to be installed. 
+
+There is a template for these plugins available link:.plugins.d/new-plugin.local.plugin[here]
+
+These plugins need to have at list these methods:
+
+* <PLUGIN_NAME>.help: Description of the commands provided by the plugin, so they can be shown when printing the *oc-cluster -h*. 
+* <PLUGIN_NAME>.describe: Description of what the plugin does. It will be shown with *oc-cluster plugin-list*. 
+* <PLUGIN_NAME>.install: Installs the plugin. 
+* <PLUGIN_NAME>.uninstall: Uninstalls the plugin
+
+Can contain additional methods providing commands, like the global plugins.
+
+By default, a local plugin needs to always call <PLUGIN_NAME>.describe
+
+== Plugin list
+
+* cfme: Installs Cloudforms
+* cockpit: Installs cockpit
+* dotnetIS: Installs the .net imagestream
+* dotnetsample: deploys a .net sample application
+* gitlab: Installs gitlab
+* nexus: Installs nexus 2
+* nexus3: Installs nexus 3
+* oc-client: Builds the oc binary of a specific fork/branch and makes it downlodable. HANDY FOR OPENSHIFT ENGINEERS
+* pipelines: Installs pipelines capabilities (for oc client < 1.4)
+* prepull-images: Pulls some of the most common images. Handy to when you prune your docker local repository.
+* profilesnapshot: Provides the ability to store/restore a profile
+* registryv2: Configures your OpenShift embedded registry as v2
+* roadshow-test: Creates a sample project with the content the OpenShift RoadShow uses.
+* samplepipeline: Deploys a sample pipeline project.
+* user: Configures the cluster to use htpasswd and provide methods for user management
+* volumes: Provides commands to create PersistentVolumes (local to a profile or shared between profiles)
+
+And the list os constantly growing. Check what's available link:.plugins.d/[here] or get a list of plugins.
+
+== Convenience methods for working with persistent volumes (Provided as global plugin)
 Most users will need to work with persistent services, so we have added two convenience methods for working with volumes. One for cluster-specific
 volumes, and another for shared volumes (similating NFS server behaviors).
 
@@ -160,7 +260,7 @@ This will create a PV of type *hostPath*, with the specified size (or 10Gi by de
 With this second mechanism, we can, as an example, share the storage for our nexus deployment between all our clusters, and use nexus for java dependency management in a very
 convenient way.
 
-== Convenience methods for adding common software to your cluster (This will be rewritten to be a plugin like mechanism in the future)
+== Convenience methods for adding common software to your cluster (Provided as a local plugin)
 Right now, as this tool is created to boost my productivity (and one of my colleagues), we have some additional methods (that we will convert into plugins) to
 deploy commons stuff that we use in most of our clusters. In this way, we have a method to deploy nexus in a project called ci, and soon we will have one for gitlab, workshops, etc...
 
@@ -186,6 +286,58 @@ Example:
 export OC_CLUSTER_PUBLIC_HOSTNAME=11.2.2.2
 ----
 
+== Faster s2i builds
+oc-cluster has the ability to bind_mount any local directory or binary to any container. I you mount your $M2_REPOSITORY or $HOME/.m2/repository to your java based
+s2i builder images, you'll be giving all the dependencies you have locally to your build container, which will greatly speed builds.
+
+You just need to create a *mounts-template.json* file in the directory of the tool and have the rules
+to inject you .m2/repository (or node, python, ruby) into the image. *oc-cluster* will detect automatically that you want to inject that
+folder when the file is present and if it has rules for oc injection.
+
+Here's an example of the content of the file to inject the oc binary into the origin container:
+
+----
+{
+  "bindMounts": [
+    {
+      "imagePattern": "openshift/wildfly.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME",
+          "destination": "/opt/app-root/src/.m2/repository"
+        }
+      ]
+    }
+  ]
+}
+----
+
+By default, M2_HOME will point to $HOME/.m2/repository. You can export a different value, which will take effect.
+
+== Developing openshift
+With oc-cluster it's very easy to inject a oc binary into any image. You just need to create a *mounts-template.json* file in the directory of the tool and have the rules
+to inject you oc binary into the image. *oc-cluster* will detect automatically that you want to inject an oc binary when the file is present and if it has rules for oc injection.
+
+Here's an example of the content of the file to inject the oc binary into the origin container:
+
+----
+{
+  "bindMounts": [
+    {
+      "imagePattern": "(openshift/origin$)|(openshift/origin:.*)",
+      "mounts": [
+        {
+          "source": "$OPENSHIFT_BINARY",
+          "destination": "/usr/bin/openshift"
+        }
+      ]
+    }
+  ]
+}
+----
+
+Make sure that the variable $OPENSHIFT_BINARY points to your oc binary, or use the fully qualified value.
+
 == Prerequisites
 If you can run *oc cluster up* you can run this tool. This works anywhere that *oc cluster up* runs, so any limitation really will be more a *oc cluster* limitation than this tool's.
 
@@ -209,7 +361,7 @@ Any idea you might have, share it with us.
 
 == Known Issues
 
-* In linux, profiles are written as root:root
+* [line-through]# In linux, profiles are written as root:root#
 
 == Contributing
 Pull Request, and issues to make the tool are welcome. Please help us make this tool better by contributing your use cases. Once we have the plugin mechanism, this will be easier to do.
