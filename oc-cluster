@@ -658,7 +658,7 @@ function destroy {
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
         # To avoid permission error in linux, we remove the profile using the openshift container
-        if [ "$_profile" != "" ] && docker run --rm --entrypoint bash $__IMAGE:$__VERSION rm -rf $(internalProfileDir) 2> /dev/null
+        [ "$_profile" != "" ] && docker run --rm --entrypoint bash $__IMAGE:$__VERSION rm -rf $(internalProfileDir) 2> /dev/null
         echo "Removing .kubeconfig profiles"
         oc adm config delete-cluster $_profile &> /dev/null
         oc adm config delete-context $_profile &> /dev/null
