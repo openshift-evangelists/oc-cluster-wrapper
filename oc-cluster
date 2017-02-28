@@ -458,15 +458,9 @@ function up {
       if [[ "$__PLATFORM" == "linux" ]]; then
         CMDLINE="DOCKER_HOST=$DEV_DOCKER_HOST $CMDLINE"
       fi
-      $CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST
+      eval "$CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST"
     else
-      $CMDLINE
-    fi
-
-    # Fix permissions in linux
-    if [[ "$__PLATFORM" == "linux" ]]; then
-      docker exec origin chown -R $USER:$GROUP $(internalProfileDir) $(internalProfileDir)
-      echo "-- Permissions on profile dir fixed"
+      eval "$CMDLINE"
     fi
 
     status &> /dev/null  || cleanupClusterAndExit $_profile
@@ -508,6 +502,13 @@ function up {
     echo "-- Adding an oc-profile=${_profile} label to every generated image so they can be later removed"
     # TODO: Add oc-version once I set up the versions
     configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" &> /dev/null
+
+    # Fix permissions in linux
+    if [[ "$__PLATFORM" == "linux" ]]; then
+      docker exec origin chown -R $USER:$GROUP $(internalProfileDir)
+      echo "-- Permissions on profile dir fixed"
+    fi
+
     markRestart
     echo "[INFO] Cluster created succesfully"
   else
@@ -523,9 +524,9 @@ function up {
       if [[ "$__PLATFORM" == "linux" ]]; then
         CMDLINE="DOCKER_HOST=$DEV_DOCKER_HOST $CMDLINE"
       fi
-      $CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST
+      eval "$CMDLINE -e DOCKER_HOST=$DEV_DOCKER_HOST"
     else
-      $CMDLINE
+      eval "$CMDLINE"
     fi
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
@@ -533,6 +534,12 @@ function up {
 
     # Use right context after starting up (Similar to log in)
     oc adm config use-context ${_profile} # &> /dev/null
+
+    # Fix permissions in linux
+    if [[ "$__PLATFORM" == "linux" ]]; then
+      docker exec origin chown -R $USER:$GROUP $(internalProfileDir)
+      echo "-- Permissions on profile dir fixed"
+    fi
   fi
 }
 
@@ -650,7 +657,8 @@ function destroy {
            down
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
-        [ "$_profile" != "" ] && rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
+        # To avoid permission error in linux, we remove the profile using the openshift container
+        if [ "$_profile" != "" ] && docker run --rm --entrypoint bash $__IMAGE:$__VERSION rm -rf $(internalProfileDir) 2> /dev/null
         echo "Removing .kubeconfig profiles"
         oc adm config delete-cluster $_profile &> /dev/null
         oc adm config delete-context $_profile &> /dev/null
