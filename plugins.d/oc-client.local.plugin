@@ -7,7 +7,8 @@ function oc-client.describe {
 
 
 function oc-client.help {
-  echo "  oc-cluster oc-client-build [<source>] [<ref>] [<platform>]"
+  echo "  oc-cluster oc-client-build [<forkname>] [<ref>] [macosx|linux]"
+  echo "  oc-cluster get-oc-client [<destination-dir>] [macosx|linux]"
 }
 
 
@@ -33,13 +34,15 @@ function oc-client.uninstall {
 #
 function oc-client-build {
   # TODO: Check parameters
-  local _git=${1:-https://github.com/openshift/origin.git}
+  local _name=${1:-openshift}
   local _ref=${2:-master}
 #  local _platform=${3:-$__PLATFORM}
   
   # TODO: Test if plugin has been properly installed, and if not, install
   
   # TODO: Check if the builder has already run and then just rebuild with new params
+
+  local _git="https://github.com/${_name}/origin.git"
 
   local CMDLINE="oc new-app origin-builder"
   [ ! -z ${_git} ] && CMDLINE+=" -p SOURCE_URL=${_git}" 
@@ -49,6 +52,20 @@ function oc-client-build {
 
   echo "$CMDLINE"
   $CMDLINE
+}
+
+# Arguments
+#  $1: dest_dir
+#  $2: platform
+function get-oc-client {
+  local _dest_dir=${1:-.}
+  local _platform=${2:-$__PLATFORM}
+
+  [ ! -d $_dest_dir ] && echo "[ERROR] Destination dir must exist. oc client if existent, will be overwritten there" && oc-client.help && exit 1 
+  if [ "$_platform" == "macosx" ]
+  then
+    curl http://build-origin-oc-build.$(domainSuffix)/darwin/amd64/oc -o ${_dest_dir}/oc
+  fi  
 }
 
 oc-client.describe

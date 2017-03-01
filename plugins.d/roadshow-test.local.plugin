@@ -53,4 +53,4 @@ function roadshow-test.uninstall {
       oc delete project/roadshow --as=system:admin
 }
 
-roadshow.describe
+roadshow-test.describe
