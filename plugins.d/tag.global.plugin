@@ -2,12 +2,13 @@
 
 function tag.help {
    # Select either of the two or both, depending on the functionality provided by the plugin
-   echo "  oc-cluster show-tags <ImageStreamName>"
-   echo "  oc-cluster tag-latest <ImageStreamName> <tag-name> - tags 'latest' ImageStream to <tag-name>"
-   echo "  oc-cluster tag-to-target <ImageStreamName> <source-tag> <target-project> <target-tag>"
-   echo "      Assumes that <source-tag> is something like 'RELEASE_1_1' and <target-tag> is 'latest'"
-   echo "      It first 'copies' the 'RELEASE_1_1' into <target-project> and call it 'latest'"
-   echo "      and then tags <target-project>:latest to 'RELEASE_1_1'"
+   echo "  oc-cluster show-tags <app-name> - Shows all Tags of <app-name> in current project"
+   echo "  oc-cluster tag-latest <app-name> <tag-name> - tags 'latest' <app-name> ImageStream to <tag-name> in current project"
+   echo "  oc-cluster tag-to-target <app-name> <source-tag> <target-project> <target-tag>"
+   echo "             Assumes that <source-tag> is something like 'RELEASE_1_1' and <target-tag> is 'latest'"
+   echo "             It first 'copies' the 'RELEASE_1_1' tagged <app-name> from current project into "
+   echo "             <target-project> and calls it 'latest' and then tags <target-project>:latest"
+   echo "             to 'RELEASE_1_1'"
 }
 
 #
@@ -18,7 +19,8 @@ function tag.help {
 #  $4 target-tag - the name of the target tag in target-project
 #
 function tag-to-target {
-	[ $# -lt 4 ] && echo "ImageStream Name is required." && exit 1
+	[ "$1" == "-h" ] || [ "$1" == "--help" ] && tag.help && return 0
+	[ $# -lt 4 ] && echo "ERROR: All parameters are required!" && tag.help && return 1
 	local IMAGE_STREAM=$1
 	local SOURCE_TAG=$2
 	local TARGET_PROJECT=$3
@@ -32,12 +34,10 @@ function tag-to-target {
 	
 	echo "Tagging '$SOURCE_TAG' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TARGET_TAG'..."
 		
-	oc tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG
-	oc tag $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG
+	oc tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG --as=system:admin
+	oc tag $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG --as=system:admin
 	
-	oc project $TARGET_PROJECT
-	oc label is $IMAGE_STREAM APP_VERSION=$TARGET_TAG --overwrite
-	oc project $SOURCE_PROJECT
+	oc label is $IMAGE_STREAM APP_VERSION=$TARGET_TAG --overwrite -n $TARGET_PROJECT --as=system:admin
 }
 
 #
@@ -45,7 +45,8 @@ function tag-to-target {
 #  $1 ImageStreamName - the name of the application to show all tags from latest
 #
 function show-tags {
-	[ $# -lt 1 ] && echo "ImageStream Name is required." && exit 1
+	[ "$1" == "-h" ] || [ "$1" == "--help" ] && tag.help && return 0
+	[ $# -lt 1 ] && echo "ERROR: <app-name> is required." && tag.help && exit 1
     local IMAGE_STREAM=$1
 	echo "Checks where 'latest' IS of $IMAGE_STREAM points to"
 	oc describe is $IMAGE_STREAM > /tmp/is.tmp
@@ -63,15 +64,11 @@ function show-tags {
 #  $2 TagName - the name of the tag 
 #
 function tag-latest {
-	[ $# -lt 2 ] && echo "ImageStream Name is required." && exit 1
+	[ "$1" == "-h" ] || [ "$1" == "--help" ] && tag.help && return 0
+	[ $# -lt 2 ] && echo "ERROR: <app-name> and <tag-name> are required arguments." && tag.help && exit 1
     local IMAGE_STREAM=$1
     local TAG_NAME=$2
-    
-    if [[ $TAG_NAME == "" ]]; then	
-    	echo "Tag is required. "
-    	exit 1
-    fi
-    
+        
     # getting current project
     local SOURCE_PROJECT=$(oc project -q)
     
