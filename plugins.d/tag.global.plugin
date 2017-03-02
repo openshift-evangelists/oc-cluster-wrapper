@@ -1,0 +1,87 @@
+#!/bin/bash
+
+function tag.help {
+   # Select either of the two or both, depending on the functionality provided by the plugin
+   echo "  oc-cluster show-tags <ImageStreamName>"
+   echo "  oc-cluster tag-latest <ImageStreamName> <tag-name> - tags 'latest' ImageStream to <tag-name>"
+   echo "  oc-cluster tag-to-target <ImageStreamName> <source-tag> <target-project> <target-tag>"
+   echo "      Assumes that <source-tag> is something like 'RELEASE_1_1' and <target-tag> is 'latest'"
+   echo "      It first 'copies' the 'RELEASE_1_1' into <target-project> and call it 'latest'"
+   echo "      and then tags <target-project>:latest to 'RELEASE_1_1'"
+}
+
+#
+# Args:
+#  $1 ImageStreamName - the name of the application to tag
+#  $2 source-tag - the source tag to use
+#  $3 target-project - the name of the target project
+#  $4 target-tag - the name of the target tag in target-project
+#
+function tag-to-target {
+	[ $# -lt 4 ] && echo "ImageStream Name is required." && exit 1
+	local IMAGE_STREAM=$1
+	local SOURCE_TAG=$2
+	local TARGET_PROJECT=$3
+	local TARGET_TAG=$4
+	local SOURCE_PROJECT=$(oc project -q)
+	
+	if [[ $SOURCE_PROJECT == $TARGET_PROJECT ]]; then
+		echo "$SOURCE_PROJECT equals $TARGET_PROJECT. Use tag-latest instead."
+		exit 1
+	fi
+	
+	echo "Tagging '$SOURCE_TAG' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TARGET_TAG'..."
+		
+	oc tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG
+	oc tag $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG
+	
+	oc project $TARGET_PROJECT
+	oc label is $IMAGE_STREAM APP_VERSION=$TARGET_TAG --overwrite
+	oc project $SOURCE_PROJECT
+}
+
+#
+# Args:
+#  $1 ImageStreamName - the name of the application to show all tags from latest
+#
+function show-tags {
+	[ $# -lt 1 ] && echo "ImageStream Name is required." && exit 1
+    local IMAGE_STREAM=$1
+	echo "Checks where 'latest' IS of $IMAGE_STREAM points to"
+	oc describe is $IMAGE_STREAM > /tmp/is.tmp
+	local imageID=$(cat /tmp/is.tmp | grep \* | awk -F$'/' '{print $3}' | head -n 1)
+		
+	local tagNames=$(cat /tmp/is.tmp | grep -B 1 "tagged from $imageID" | sed '/^  tagged from/d' | sed '/^--/d')
+	for tag in $tagNames ; do
+		echo "'latest' points on $tag"
+	done
+}
+
+#
+# Args:
+#  $1 ImageStreamName - the name of the application to show all tags from latest
+#  $2 TagName - the name of the tag 
+#
+function tag-latest {
+	[ $# -lt 2 ] && echo "ImageStream Name is required." && exit 1
+    local IMAGE_STREAM=$1
+    local TAG_NAME=$2
+    
+    if [[ $TAG_NAME == "" ]]; then	
+    	echo "Tag is required. "
+    	exit 1
+    fi
+    
+    # getting current project
+    local SOURCE_PROJECT=$(oc project -q)
+    
+	# getting imagestream ID
+	# this algorythm is just taking the FIRST entry of the line starting with a '*'
+	imageID=$(oc describe is $IMAGE_STREAM | grep \* | awk -F$'/' '{print $3}' | head -n 1)
+	imageID="$SOURCE_PROJECT/"$imageID
+
+	#echo "oc tag $imageID $SOURCE_PROJECT/$IMAGE_STREAM:$TAG_NAME "
+	oc tag $imageID $SOURCE_PROJECT/$IMAGE_STREAM:$TAG_NAME
+
+}
+
