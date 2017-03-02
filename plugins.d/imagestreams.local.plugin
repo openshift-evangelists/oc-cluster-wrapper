@@ -1,0 +1,49 @@
+#!/bin/bash
+
+function imagestreams.describe {
+   echo "Installs most official ImageStreams and Templates for xPaaS."
+   imagestreams.help
+}
+
+
+function imagestreams.help {
+	echo ""
+}
+
+
+function imagestreams.install {
+	# init jboss-image streams
+	oc create -n openshift -f 'https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json' --as=system:admin
+
+	# init s2i java image streams
+	oc create -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
+
+	# install all the xPaaS templates
+	git clone https://github.com/jboss-openshift/application-templates.git /tmp/app-templates
+
+	for i in /tmp/app-templates/amq/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/datagrid/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/datavirt/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/decisionserver/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/eap/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/processserver/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/sso/*.json; do oc create -f $i -n openshift --as=system:admin; done
+	for i in /tmp/app-templates/webserver/*.json; do oc create -f $i -n openshift --as=system:admin; done
+
+	rm -rf /tmp/app-templates
+
+	# install FIS 2.0 image streams
+	oc create -n openshift -f https://raw.githubusercontent.com/jboss-fuse/application-templates/GA/fis-image-streams.json --as=system:admin
+
+	# install application templates for FIS 2.0
+	git clone https://github.com/jboss-fuse/application-templates.git /tmp/fuse-app-templates
+	for i in /tmp/fuse-app-templates/quickstarts/*.json; do oc create -f $i -n openshift --as=system:admin; done
+
+	rm -rf /tmp/fuse-app-templates
+}
+
+function imagestreams.uninstall {
+  echo "Not Implemented."
+}
+
+imagestreams.describe
