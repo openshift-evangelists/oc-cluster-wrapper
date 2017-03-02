@@ -42,16 +42,6 @@ if [[ "$__PLATFORM" == "unknown" ]]; then
   echo "Unknown platform: script should exit" && exit 1
 fi
 
-# Platform linux
-if [[ "$__PLATFORM" == "linux" ]]; then
-  echo "Performing some customization for platform $__PLATFORM"
-  __DOCKER0_IP=$(which-ip)
-  echo "Using Docker0 ($__DOCKER0_IP) ip as external cluster and router address"
-  OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-${__DOCKER0_IP}}
-  OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX:-apps.${OC_CLUSTER_PUBLIC_HOSTNAME:-${__DOCKER0_IP}}.nip.io}
-  EXTRA_OPTS="--forward-ports=false"
-fi
-
 # Determine the version and type of client
 __VERSION=$(oc version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
 if [[ "${__VERSION}" =~ ^v1.[0-9]$  ]]; then
@@ -66,8 +56,6 @@ echo "# Using client for $__TYPE $__VERSION"
 USER="$(id -u)"
 GROUP="$(id -g)"
 
-OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
-OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX:-${OC_CLUSTER_PUBLIC_HOSTNAME}.nip.io}
 OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
@@ -298,11 +286,6 @@ function up {
     mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
     mkdir -p $OPENSHIFT_HOST_PV_DIR
 
-    # Save hostname and suffix
-    echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
-    echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
-    echo "$DEV_DOCKER_HOST" > $OPENSHIFT_PROFILES_DIR/$_profile/dev
-
     # Parse supported command line, and detect duplicates
     while [ "${1+defined}" ]; do
       local _key=$1
@@ -437,8 +420,18 @@ function up {
     local CMDLINE="oc cluster up"
     [ ! -z $__PARM_OC_VERSION ] && CMDLINE+=" --version $__PARM_OC_VERSION" || CMDLINE+=" --version $__VERSION"
     [ ! -z $__PARM_OC_IMAGE ] && CMDLINE+=" --image $__PARM_OC_IMAGE" || CMDLINE+=" --image $__IMAGE"
-    [ ! -z $__PARM_OC_PUBLIC_HOSTNAME ] && CMDLINE+=" --public-hostname $__PARM_OC_PUBLIC_HOSTNAME" || CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
-    [ ! -z $__PARM_OC_ROUTING_SUFFIX ] && CMDLINE+=" --routing-suffix $__PARM_OC_ROUTING_SUFFIX" || CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
+    if [ ! -z $__PARM_OC_PUBLIC_HOSTNAME ]; then
+      OC_CLUSTER_PUBLIC_HOSTNAME=${__PARM_OC_PUBLIC_HOSTNAME}
+    else
+      OC_CLUSTER_PUBLIC_HOSTNAME=${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}
+    fi
+    CMDLINE+=" --public-hostname $OC_CLUSTER_PUBLIC_HOSTNAME"
+    if [ ! -z $__PARM_OC_ROUTING_SUFFIX ]; then
+      OC_CLUSTER_ROUTING_SUFFIX=$__PARM_OC_ROUTING_SUFFIX
+    else
+      OC_CLUSTER_ROUTING_SUFFIX=${OC_CLUSTER_ROUTING_SUFFIX:-apps.${OC_CLUSTER_PUBLIC_HOSTNAME}.nip.io}
+    fi
+    CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
     [ ! -z $__PARM_OC_METRICS ] && CMDLINE+=" --metrics $__PARM_OC_METRICS"
     [ ! -z $__PARM_OC_LOGGING ] && CMDLINE+=" --logging $__PARM_OC_LOGGING"
     CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
@@ -455,6 +448,11 @@ function up {
     # args to the CMDLINE
     # TODO: Add support for proxies and image streams, and
     # custom arguments. Do not support anything coming from cluster up
+
+    # Save hostname and suffix
+    echo "$OC_CLUSTER_ROUTING_SUFFIX"  > $OPENSHIFT_PROFILES_DIR/$_profile/suffix
+    echo "$OC_CLUSTER_PUBLIC_HOSTNAME" > $OPENSHIFT_PROFILES_DIR/$_profile/hostname
+    echo "$DEV_DOCKER_HOST" > $OPENSHIFT_PROFILES_DIR/$_profile/dev
 
     echo "$CMDLINE" > $OPENSHIFT_PROFILES_DIR/$_profile/run
     echo "$(<$OPENSHIFT_PROFILES_DIR/$_profile/run)"
