@@ -44,7 +44,7 @@ fi
 
 # Determine the version and type of client
 __VERSION=$(oc version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
-if [[ "${__VERSION}" =~ ^v1.[0-9]$  ]]; then
+if [[ "${__VERSION}" =~ ^v3.[0-9]  ]]; then
     __TYPE="ocp"
     __IMAGE="registry.access.redhat.com/openshift3/ose"
   else
@@ -967,6 +967,7 @@ function help {
     do
       local _filename=$(basename "$i")
       local _script=${_filename%%.*}
+      echo "hallo $_filename"
       source $i &> /dev/null
       ${_script}.help
     done
