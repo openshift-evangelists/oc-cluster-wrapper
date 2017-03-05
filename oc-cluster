@@ -188,13 +188,11 @@ function bindIP {
 
 function requiresInternet {
   # Test if there is internet connectivity, else fail
-  echo "Test internet connection"
   echo -e "GET http://google.com HTTP/1.0\n\n" | nc google.com 80 > /dev/null 2>&1
   local _connectivity=$?
   if [ $_connectivity -ne 0 ]; then
     echo "[ERROR] There is no internet connection. Operation can not be done" && exit 10
   fi
-  echo "OK"
 }
 
 # Function that tells me if the client used supports some features
@@ -845,7 +843,7 @@ function plugin-install {
      # Symlink
      ln -s $PLUGINS_DIR/${_plugin}.local.plugin $(profileDir)/plugins &> /dev/null
      # Execute install
-     source $(profileDir)/plugins/${_plugin}.local.plugin
+     source $(profileDir)/plugins/${_plugin}.local.plugin &> /dev/null
      echo "========"
      ${_plugin}.install
      # TODO: Check that the plugin has exited with 0, else print an error and unlink
@@ -1047,7 +1045,7 @@ then
         ;;
       *)
         shift # past argument
-        $key "$@"  || echo "Command $key not found"
+        $key "$@"  2> /dev/null || echo "Command $key not found"
         ;;
    esac
 else

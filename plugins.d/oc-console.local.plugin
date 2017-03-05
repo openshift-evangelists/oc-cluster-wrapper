@@ -1,0 +1,66 @@
+#!/bin/bash
+
+function oc-console.describe {
+   echo "Creates a project named oc-console where you'll be able to build projects"
+   oc-console.help
+}
+
+
+function oc-console.help {
+  echo "  oc-cluster oc-console-build [<forkname>] [<ref>]"
+  echo "  oc-cluster get-console-url"
+}
+
+
+function oc-console.install {
+  requiresInternet
+  
+  oc adm new-project oc-console --as=system:admin
+
+  oc create -f https://gist.githubusercontent.com/jwforres/707ec44e19f499a74072da3f1cbc876d/raw/e6330309669e60f9f741ee955af568d459c38741/httpd-web-console-template  -n oc-console --as=system:admin
+
+  # TODO: CORS need to be enabled for the $(domainSuffix)
+
+  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n oc-console
+  echo "Project 'oc-console' has been created and shared with you. It has a template for building openshift console"  
+}
+
+function oc-console.uninstall {
+  oc delete project oc-console --as=system:admin
+}
+
+# Arguments
+#  $1: git repository to build
+#  $2: ref
+#  $3: platform
+#
+function oc-console-build {
+  # TODO: Check parameters
+  local _name=${1:-openshift}
+  local _ref=${2:-master}
+  
+  # TODO: Test if plugin has been properly installed, and if not, install
+  
+  # TODO: Check if the builder has already run and then just rebuild with new params
+
+  local _git="https://github.com/${_name}/origin-web-console.git"
+
+  local CMDLINE="oc new-app origin-builder"
+  [ ! -z ${_git} ] && CMDLINE+=" -p GIT_REPO=${_git}" 
+  [ ! -z ${_ref} ] && CMDLINE+=" -p GIT_REF=${_ref}"
+  CMDLINE+=" -p PUBLIC_MASTER_HOSTPORT=$(bindIP):8443"
+  CMDLINE+=" -p CONSOLE_PUBLIC_URL=console.$(domainSuffix)"
+  CMDLINE+=" -n oc-console --as=system:admin"
+
+  echo "$CMDLINE"
+  $CMDLINE
+}
+
+function get-console-url {
+#   local _dest_dir=${1:-.}
+#   local _platform=${2:-$__PLATFORM}
+
+    echo "https://console.$(domainSuffix)/console"
+}
+
+oc-console.describe

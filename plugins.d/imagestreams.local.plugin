@@ -1,49 +1,202 @@
 #!/bin/bash
 
 function imagestreams.describe {
-   echo "Installs most official ImageStreams and Templates for xPaaS."
+   echo "Installs different imagestreams, based on user choice."
+   echo "These can be the most official ImageStreams and Templates for xPaaS and SCL based on RHEL or the origin imagestreams based on Centos"
    imagestreams.help
 }
 
-
 function imagestreams.help {
-	echo ""
+  echo "  oc-cluster imagestreams [ocp|origin,rhel|centos,xpaas,wildfly,dotnet,quickstarts,3scale,jenkins,db,cfme] [version]"
 }
 
-
 function imagestreams.install {
-	# init jboss-image streams
-	oc create -n openshift -f 'https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json' --as=system:admin
-
-	# init s2i java image streams
-	oc create -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
-
-	# install all the xPaaS templates
-	git clone https://github.com/jboss-openshift/application-templates.git /tmp/app-templates
-
-	for i in /tmp/app-templates/amq/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/datagrid/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/datavirt/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/decisionserver/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/eap/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/processserver/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/sso/*.json; do oc create -f $i -n openshift --as=system:admin; done
-	for i in /tmp/app-templates/webserver/*.json; do oc create -f $i -n openshift --as=system:admin; done
-
-	rm -rf /tmp/app-templates
-
-	# install FIS 2.0 image streams
-	oc create -n openshift -f https://raw.githubusercontent.com/jboss-fuse/application-templates/GA/fis-image-streams.json --as=system:admin
-
-	# install application templates for FIS 2.0
-	git clone https://github.com/jboss-fuse/application-templates.git /tmp/fuse-app-templates
-	for i in /tmp/fuse-app-templates/quickstarts/*.json; do oc create -f $i -n openshift --as=system:admin; done
-
-	rm -rf /tmp/fuse-app-templates
+  imagestreams
+  echo "Imagestreams and templates hasve been installed in 'openshift' project"
 }
 
 function imagestreams.uninstall {
-  echo "Not Implemented."
+  echo "If you want different imagestreams just install them"
+}
+
+#
+# Arguments:
+#  $1: imagestreams [ocp,origin,rhel,centos,xpaas,wildfly,dotnet,quickstarts,3scale,jenkins,db,cfme]: Defaults to the current client type
+#  $2: version (v1.0,v1.1,v1.2,v1.3,v1.4,v1.5). Seen at: https://github.com/openshift/openshift-ansible/tree/master/roles/openshift_examples/files/examples: Defaults to latest
+#
+function imagestreams {
+  requiresInternet
+
+  local __is=${1:-$__TYPE}
+  local __version=${2:-$(curl -s https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/latest)}
+
+  [ $__is == "ocp" ] && __is="rhel,xpaas,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
+  [ $__is == "origin" ] && __is="centos,wildfly,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
+
+  # Check which imagestreams to install 
+  #parseArguments
+  local _tokens=$(echo $__is | tr "," "\n")
+  for is in $_tokens
+  do
+    case $is in
+      rhel) 
+      rhel=true
+      ;; 
+      centos)
+        centos=true
+        ;; 
+      xpaas)
+        xpaas=true
+        ;; 
+      wildfly)
+        wildfly=true
+        ;;
+      dotnet)
+        dotnet=true
+        ;;
+      quickstarts)
+        quickstarts=true
+        ;;
+      3scale)
+        api3scale=true
+        ;;
+      jenkins)
+        jenkins=true
+        ;;
+      db)
+        db=true
+        ;;
+      cfme)
+        cfme=true
+        ;;
+        *)
+        echo "[INFO] Imagestreams type [$is] not supported"
+      ;; 
+    esac
+  done
+
+  local _imagestreams=()
+  if [ ! -z $rhel ]
+  then
+    _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/image-streams/image-streams-rhel7.json)
+  fi
+
+  if [ ! -z $centos ]
+  then
+    _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/image-streams/image-streams-centos7.json)
+  fi
+
+  if [ ! -z $dotnet ]
+  then
+    _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/image-streams/dotnet_imagestreams.json)
+  fi
+
+  if [ ! -z $xpaas ]
+  then
+    _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-streams/jboss-image-streams.json)
+    _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-streams/fis-image-streams.json)
+    for i in amq62-basic amq62-persistent-ssl amq62-persistent amq62-ssl
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in datagrid65-basic datagrid65-https datagrid65-mysql-persistent datagrid65-mysql datagrid65-postgresql-persistent datagrid65-postgresql
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in datavirt63-basic-s2i datavirt63-extensions-support-s2i datavirt63-secure-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in decisionserver62-amq-s2i decisionserver62-basic-s2i decisionserver62-https-s2i decisionserver63-amq-s2i decisionserver63-basic-s2i decisionserver63-https-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in eap64-amq-persistent-s2i eap64-amq-s2i eap64-basic-s2i eap64-https-s2i eap64-mongodb-persistent-s2i eap64-mongodb-s2i eap64-mysql-persistent-s2i eap64-mysql-s2i eap64-postgresql-persistent-s2i eap64-postgresql-s2i eap64-sso-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in eap70-amq-persistent-s2i eap70-amq-s2i eap70-basic-s2i eap70-https-s2i eap70-mongodb-persistent-s2i eap70-mongodb-s2i eap70-mysql-persistent-s2i eap70-mysql-s2i eap70-postgresql-persistent-s2i eap70-postgresql-s2i eap70-sso-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in jws30-tomcat7-basic-s2i jws30-tomcat7-https-s2i jws30-tomcat7-mongodb-persistent-s2i jws30-tomcat7-mongodb-s2i jws30-tomcat7-mysql-persistent-s2i jws30-tomcat7-mysql-s2i jws30-tomcat7-postgresql-s2i jws30-tomcat7-postgresql-persistent-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in jws30-tomcat8-basic-s2i jws30-tomcat8-https-s2i jws30-tomcat8-mongodb-persistent-s2i jws30-tomcat8-mongodb-s2i jws30-tomcat8-mysql-persistent-s2i jws30-tomcat8-mysql-s2i jws30-tomcat8-postgresql-s2i jws30-tomcat8-postgresql-persistent-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in karaf2-camel-amq-template karaf2-camel-log-template karaf2-camel-rest-sql-template karaf2-cxf-rest-template
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in openjdk18-web-basic-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in processserver63-amq-mysql-persistent-s2i processserver63-amq-mysql-s2i processserver63-amq-postgresql-persistent-s2i processserver63-amq-postgresql-persistent-s2i processserver63-basic-s2i processserver63-mysql-persistent-s2i processserver63-mysql-s2i processserver63-postgresql-persistent-s2i processserver63-postgresql-persistent-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in spring-boot-camel-amq-template spring-boot-camel-config-template spring-boot-camel-drools-template spring-boot-camel-infinispan-template spring-boot-camel-rest-sql-template spring-boot-camel-teiid-template spring-boot-camel-template spring-boot-camel-xml-template
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+    for i in sso70-https sso70-mysql-persistent sso70-mysql sso70-postgresql-persistent sso70-postgresql
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done
+  fi
+
+  if [ ! -z $wildfly ]
+  then
+    : # echo "wildfly"
+  fi
+
+  if [ ! -z $quickstarts ]
+  then
+    for i in cakephp-mysql cakephp-mysql-persistent dancer-mysql dancer-mysql-persistent django-postgresql django-postgresql-persistent nodejs-mongodb nodejs-mongodb-persistent rails-postgresql rails-postgresql-persistent
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/quickstart-templates/${i}.json)
+    done
+  fi
+
+  if [ ! -z $jenkins ]
+  then
+    for i in jenkins-ephemeral-template jenkins-persistent-template
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/quickstart-templates/${i}.json)
+    done
+  fi
+
+  if [ ! -z $api3scale ]
+  then
+    _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/quickstart-templates/apicast-gateway-template.yml)
+  fi
+  
+  if [ ! -z $db ]
+  then
+    for i in mariadb-ephemeral-template mariadb-persistent-template mongodb-ephemeral-template mongodb-persistent-template mysql-ephemeral-template mysql-persistent-template postgresql-ephemeral-template postgresql-persistent-template redis-ephemeral-template redis-persistent-template
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/db-templates/${i}.json)
+    done
+  fi
+
+  if [ ! -z $cfme ]
+  then
+    for i in cfme-pv-app-example cfme-pv-example cfme-template
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/quickstart-templates/${i}.yaml)
+    done
+  fi
+  for is in ${_imagestreams[@]}
+  do
+    oc apply -n openshift -f "$is" --as=system:admin
+  done
+
+  #jorgemoralespou s2i java image streams
+  # oc apply -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
 }
 
 imagestreams.describe
