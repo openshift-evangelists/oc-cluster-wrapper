@@ -12,7 +12,7 @@ function imagestreams.help {
 
 function imagestreams.install {
   imagestreams
-  echo "Imagestreams and templates hasve been installed in 'openshift' project"
+  echo "Imagestreams and templates have been installed in 'openshift' project"
 }
 
 function imagestreams.uninstall {
