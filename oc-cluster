@@ -845,7 +845,8 @@ function plugin-install {
      # Execute install
      source $(profileDir)/plugins/${_plugin}.local.plugin &> /dev/null
      echo "========"
-     ${_plugin}.install
+     shift # Remove plugin name as argument
+     ${_plugin}.install "$@"
      # TODO: Check that the plugin has exited with 0, else print an error and unlink
      echo "========"
      echo "Installed"
@@ -883,7 +884,8 @@ function plugin-uninstall {
       # Execute install
       source $(profileDir)/plugins/${_plugin}.local.plugin
       echo "========"
-      ${_plugin}.uninstall
+      shift # Remove plugin name as argument
+      ${_plugin}.uninstall "$@"
       # TODO: Check that the plugin has exited with 0, else print an error and unlink
       echo "========"
       echo "Uninstalled"
@@ -1038,10 +1040,6 @@ then
          ;;
       -h|--help)
         help
-        ;;
-      --*)
-        shift
-        ${key:2}.execute  "$@"
         ;;
       *)
         shift # past argument

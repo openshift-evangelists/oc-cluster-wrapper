@@ -11,8 +11,8 @@ function imagestreams.help {
 }
 
 function imagestreams.install {
-  imagestreams
-  echo "Imagestreams and templates hasve been installed in 'openshift' project"
+  imagestreams "$@"
+  echo "Imagestreams and templates have been installed in 'openshift' project"
 }
 
 function imagestreams.uninstall {
@@ -21,7 +21,7 @@ function imagestreams.uninstall {
 
 #
 # Arguments:
-#  $1: imagestreams [ocp,origin,rhel,centos,xpaas,wildfly,dotnet,quickstarts,3scale,jenkins,db,cfme]: Defaults to the current client type
+#  $1: imagestreams [ocp,origin,rhel,centos,xpaas,wildfly,java,dotnet,quickstarts,3scale,jenkins,db,cfme]: Defaults to the current client type
 #  $2: version (v1.0,v1.1,v1.2,v1.3,v1.4,v1.5). Seen at: https://github.com/openshift/openshift-ansible/tree/master/roles/openshift_examples/files/examples: Defaults to latest
 #
 function imagestreams {
@@ -31,7 +31,7 @@ function imagestreams {
   local __version=${2:-$(curl -s https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/latest)}
 
   [ $__is == "ocp" ] && __is="rhel,xpaas,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
-  [ $__is == "origin" ] && __is="centos,wildfly,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
+  [ $__is == "origin" ] && __is="centos,java,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
 
   # Check which imagestreams to install 
   #parseArguments
@@ -50,6 +50,9 @@ function imagestreams {
         ;; 
       wildfly)
         wildfly=true
+        ;;
+      java)
+        java=true
         ;;
       dotnet)
         dotnet=true
@@ -154,6 +157,14 @@ function imagestreams {
     : # echo "wildfly"
   fi
 
+  if [ ! -z $java ]
+  then
+    for i in openjdk18-web-basic-s2i
+    do
+      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
+    done  
+  fi
+
   if [ ! -z $quickstarts ]
   then
     for i in cakephp-mysql cakephp-mysql-persistent dancer-mysql dancer-mysql-persistent django-postgresql django-postgresql-persistent nodejs-mongodb nodejs-mongodb-persistent rails-postgresql rails-postgresql-persistent
@@ -190,6 +201,7 @@ function imagestreams {
       _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/quickstart-templates/${i}.yaml)
     done
   fi
+
   for is in ${_imagestreams[@]}
   do
     oc apply -n openshift -f "$is" --as=system:admin
