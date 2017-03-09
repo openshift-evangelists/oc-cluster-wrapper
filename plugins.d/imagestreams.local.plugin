@@ -96,8 +96,10 @@ function imagestreams {
 
   if [ ! -z $xpaas ]
   then
+    # These are imagestreams
     _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-streams/jboss-image-streams.json)
     _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-streams/fis-image-streams.json)
+    # These are templates
     for i in amq62-basic amq62-persistent-ssl amq62-persistent amq62-ssl
     do
       _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
@@ -159,10 +161,8 @@ function imagestreams {
 
   if [ ! -z $java ]
   then
-    for i in openjdk18-web-basic-s2i
-    do
-      _imagestreams+=(https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/${__version}/xpaas-templates/${i}.json)
-    done  
+    oc import-image redhat-openjdk18-openshift:1.0 --from registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.0 --confirm -n openshift --as=system:admin
+    oc tag openshift/redhat-openjdk18-openshift:1.0 openshift/redhat-openjdk18-openshift:latest -n openshift --as=system:admin
   fi
 
   if [ ! -z $quickstarts ]

@@ -496,7 +496,7 @@ function up {
     oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true &> /dev/null
     # TODO: Change token for secure certs: --client-certificate=path/to/my/client/cert --client-key=path/to/my/client/key
     oc adm config set-credentials ${OS_DEFAULT_USER}@${_profile} --token=$(oc whoami -t) &> /dev/null
-    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}@${_profile} --namespace=${OS_DEFAULT_PROJECT} &> /dev/null
+    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}/${_profile} --namespace=${OS_DEFAULT_PROJECT} &> /dev/null
     oc adm config use-context ${_profile} # &> /dev/null
 
     # Add a label to the created images so that can be removed with the cluster
