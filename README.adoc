@@ -20,7 +20,7 @@ echo 'export PATH' >> /home/$HOME/.bash_profile
 If you want to add bash completion (you might need to execute this as sudo):
 
 ----
-$HOME/oc-cluster completion bash > /etc/bash_completion.d/oc-cluster.bash
+$HOME/oc-cluster-wrapper/oc-cluster completion bash > /etc/bash_completion.d/oc-cluster.bash
 ----
 
 === Mac OS
@@ -36,7 +36,7 @@ echo 'export PATH' >> $HOME/.bash_profile
 If you want to add bash completion:
 
 ----
-$HOME/oc-cluster completion bash > $(brew --prefix)/etc/bash_completion.d/oc-cluster.bash
+$HOME/oc-cluster-wrapper/oc-cluster completion bash > $(brew --prefix)/etc/bash_completion.d/oc-cluster.bash
 ----
 
 == What it provides
