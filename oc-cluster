@@ -188,7 +188,7 @@ function bindIP {
 
 function requiresInternet {
   # Test if there is internet connectivity, else fail
-  echo -e "GET http://google.com HTTP/1.0\n\n" | nc google.com 80 > /dev/null 2>&1
+  curl -s -m 5 http://google.com > /dev/null 2>&1
   local _connectivity=$?
   if [ $_connectivity -ne 0 ]; then
     echo "[ERROR] There is no internet connection. Operation can not be done" && exit 10
