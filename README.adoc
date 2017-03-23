@@ -14,7 +14,7 @@ On linux (tested on fedora 25):
 ----
 git clone https://github.com/openshift-evangelists/oc-cluster-wrapper
 echo 'PATH=$HOME/oc-cluster-wrapper:$PATH' >> $HOME/.bash_profile
-echo 'export PATH' >> /home/$HOME/.bash_profile
+echo 'export PATH' >> $HOME/.bash_profile
 ----
 
 If you want to add bash completion (you might need to execute this as sudo):
