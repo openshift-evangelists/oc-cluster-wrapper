@@ -43,7 +43,7 @@ if [[ "$__PLATFORM" == "unknown" ]]; then
 fi
 
 # Determine the version and type of client
-__VERSION=$(oc version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+__VERSION=$(oc version 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
 if [[ "${__VERSION}" =~ ^v3.*$  ]]; then
     __TYPE="ocp"
     __IMAGE="registry.access.redhat.com/openshift3/ose"
