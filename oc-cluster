@@ -44,7 +44,11 @@ fi
 
 # Determine the version and type of client
 __VERSION=$(oc version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
-if [[ "${__VERSION}" =~ ^v3.*$  ]]; then
+# FIX for 1.3.0 not supporting --request-timeout
+if [ -z $__VERSION ]; then
+  __VERSION=$(oc version 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+fi
+if oc cluster up --help | grep -- " --image=" | grep -q "ose"; then
     __TYPE="ocp"
     __IMAGE="registry.access.redhat.com/openshift3/ose"
   else
