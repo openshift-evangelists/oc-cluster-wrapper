@@ -30,9 +30,10 @@ function imagestreams {
   local __is=${1:-$__TYPE}
   local __version=${2:-$(curl -s https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/latest)}
 
-  [ $__is == "ocp" ] && __is="rhel,xpaas,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
-  [ $__is == "origin" ] && __is="centos,java,dotnet,quickstarts,3scale,jenkins,db" && echo "[INFO] Installing $__is"
+  [ $__is == "ocp" ] && __is="rhel,xpaas,dotnet,quickstarts,3scale,jenkins,db"
+  [ $__is == "origin" ] && __is="centos,java,dotnet,quickstarts,3scale,jenkins,db"
 
+  echo "[INFO] Installing the following ImageStreams and templates: ${__is}"
   # Check which imagestreams to install 
   #parseArguments
   local _tokens=$(echo $__is | tr "," "\n")

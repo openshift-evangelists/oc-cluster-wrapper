@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DOC="https://github.com/openshift-evangelists/oc-cluster-wrapper/blob/master/README.adoc"
-SCRIPT_NAME=`basename "$0"`
+SCRIPT_NAME=$(basename "$0")
 # Helpers, maybe worth in another file
 
 # Handle source locations that might be a symlink (ref: http://bit.ly/2kcvSCS)

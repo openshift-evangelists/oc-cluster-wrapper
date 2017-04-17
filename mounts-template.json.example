@@ -19,6 +19,15 @@
       ]
     },
     {
+      "imagePattern": ".*openjdk18-openshift.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME",
+          "destination": "/opt/app-root/src/.m2/repository"
+        }
+      ]
+    },
+    {
       "imagePattern": "openshift/origin-sti-builder.*",
       "env": [
         {
