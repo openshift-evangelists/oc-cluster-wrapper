@@ -312,6 +312,17 @@ function up {
           __PARM_OC_IMAGE="$2"
           shift 2; # past argument
           ;;
+        # Type can be ocp or origin
+        --type=*)
+          [ ! -z "$__PARM_OC_TYPE" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_TYPE="${_key#*=}"
+          shift # past argument
+          ;;
+        --type)
+          [ ! -z "$__PARM_OC_TYPE" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_TYPE="$2"
+          shift 2; # past argument
+          ;;
         --logging=*)
           [ ! -z "$__PARM_OC_LOGGING" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
           __PARM_OC_LOGGING="${_key#*=}"
@@ -420,8 +431,22 @@ function up {
 
     # Build command line
     local CMDLINE="oc cluster up"
-    [ ! -z $__PARM_OC_VERSION ] && CMDLINE+=" --version $__PARM_OC_VERSION" || CMDLINE+=" --version $__VERSION"
-    [ ! -z $__PARM_OC_IMAGE ] && CMDLINE+=" --image $__PARM_OC_IMAGE" || CMDLINE+=" --image $__IMAGE"
+    [ ! -z "$__PARM_OC_VERSION" ] && CMDLINE+=" --version $__PARM_OC_VERSION" || CMDLINE+=" --version $__VERSION"
+    if [ ! -z "$__PARM_OC_TYPE" ]; then
+      if [ "$__PARM_OC_TYPE" == "ocp" ]; then
+        __TYPE="ocp"
+        __IMAGE="registry.access.redhat.com/openshift3/ose"
+      elif [ "$__PARM_OC_TYPE" == "origin" ]; then
+        __TYPE="origin"
+        __IMAGE="openshift/origin"
+      else
+        echo "[ERROR] '$__PARM_OC_TYPE' Not supported. Only 'ocp' and 'origin' are supported"
+        exit
+      fi
+      CMDLINE+=" --image $__IMAGE"
+    else
+      [ ! -z $__PARM_OC_IMAGE ] && CMDLINE+=" --image $__PARM_OC_IMAGE" || CMDLINE+=" --image $__IMAGE"
+    fi
     if [ ! -z $__PARM_OC_PUBLIC_HOSTNAME ]; then
       OC_CLUSTER_PUBLIC_HOSTNAME=${__PARM_OC_PUBLIC_HOSTNAME}
     else
@@ -567,7 +592,7 @@ function up.help {
   echo "--public-hostname='${OC_CLUSTER_PUBLIC_HOSTNAME}': Hostname to expose the master server"
   echo "--routing-suffix='${OC_CLUSTER_ROUTING_SUFFIX}': Default wildcard dns for your router"
   echo "--version='${__VERSION}'"
-#  echo "--type='origin': Specify the type of install ocp|origin"
+  echo "--type='': Specify the type of install ocp|origin. Overrides --image if set"
   echo "--image='openshift/origin': Specify the openshift image to use"
   echo "--image-streams='centos7': Specify which image streams to use, centos7|rhel7"
   echo "--logging=false: If true, install logging (experimental)"
@@ -801,7 +826,7 @@ _oc_cluster_completion() {
   profiles=\$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
 
   boolean_args="--create-machine= --forward-ports= --metrics= --skip-registry-check= --use-existing-config="
-  cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= \$boolean_args"
+  cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= --type=\$boolean_args"
   #todo complete these args more
   [[ "\$command" == "up" && \$COMP_CWORD -gt 2 ]] && \
     COMPREPLY=( \$( compgen -W "\$cluster_args" -- \$cur ) ) && \
