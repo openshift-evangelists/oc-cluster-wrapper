@@ -286,6 +286,15 @@ Example:
 export OC_CLUSTER_PUBLIC_HOSTNAME=11.2.2.2
 ----
 
+== Use alternate oc version
+If you want to have an alternate oc client/version than the one on the path, the script uses an environment variable *OC_BINARY* that let you replace
+the client used.
+
+----
+$ OC_CLIENT=oc-1.4.1 oc-cluster up
+# Using client for origin v1.4.1
+----
+
 == Faster s2i builds
 oc-cluster has the ability to bind_mount any local directory or binary to any container. I you mount your $M2_REPOSITORY or $HOME/.m2/repository to your java based
 s2i builder images, you'll be giving all the dependencies you have locally to your build container, which will greatly speed builds.
