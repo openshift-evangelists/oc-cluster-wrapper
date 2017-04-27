@@ -68,7 +68,7 @@ OC_CLUSTER_PREFILL_PVS=${OC_CLUSTER_PREFILL_PVS:-10}
 OC_CLUSTER_TZ=${OC_CLUSTER_TZ:-$(date +%Z)}
 OC_CLUSTER_MOUNTS=${OC_CLUSTER_MOUNTS:-$DIR/mounts.json}
 # Variables for Developer mode
-M2_HOME=${M2_HOME:-$HOME/.m2/repository}
+M2_HOME=${M2_HOME:-$HOME/.m2}
 
 OS_DEFAULT_USER="developer"
 OS_DEFAULT_PROJECT="myproject"
@@ -498,6 +498,12 @@ function up {
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
+    # Fix permissions in linux
+    if [[ "$__PLATFORM" == "linux" ]]; then
+      docker exec origin chown -R $USER:$GROUP $(internalProfileDir)
+      echo "-- Permissions on profile dir fixed"
+    fi
+
     CONTEXT="default/"$(echo $OC_CLUSTER_PUBLIC_HOSTNAME| tr -s '.' '-')":8443/system:admin"
     #Add developer as sudoer
     ${OC_BINARY} adm policy add-cluster-role-to-group sudoer system:authenticated \
@@ -534,12 +540,6 @@ function up {
     # TODO: Add oc-version once I set up the versions
     configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" 1> /dev/null
 
-    # Fix permissions in linux
-    if [[ "$__PLATFORM" == "linux" ]]; then
-      docker exec origin chown -R $USER:$GROUP $(internalProfileDir)
-      echo "-- Permissions on profile dir fixed"
-    fi
-
     markRestart
     echo "[INFO] Cluster created succesfully"
   else
@@ -562,15 +562,15 @@ function up {
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
-
-    # Use right context after starting up (Similar to log in)
-    ${OC_BINARY} adm config use-context ${_profile} # &> /dev/null
-
+    
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
       docker exec origin chown -R $USER:$GROUP $(internalProfileDir)
       echo "-- Permissions on profile dir fixed"
     fi
+
+    # Use right context after starting up (Similar to log in)
+    ${OC_BINARY} adm config use-context ${_profile} # &> /dev/null
   fi
 }
 
@@ -689,15 +689,11 @@ function destroy {
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
         # To avoid permission error in linux, we remove the profile using the openshift container
-        if [ "$_profile" != "" ]
-        then
-          docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile 2> /dev/null
-          [ -d $OPENSHIFT_PROFILES_DIR/$_profile ] && rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
-        fi
+        docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles:Z --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile
         echo "Removing .kubeconfig profiles"
-        ${OC_BINARY} adm config delete-cluster $_profile &> /dev/null
-        ${OC_BINARY} adm config delete-context $_profile &> /dev/null
-        # TODO: Remove the images
+        ${OC_BINARY} adm config delete-cluster $_profile 1> /dev/null
+        ${OC_BINARY} adm config delete-context $_profile 1> /dev/null
+        # Remove the images
         local _num_images=$(docker images --filter label=oc-profile=${_profile} -q | wc -l)
         echo "Removing $((${_num_images})) images built with this cluster"
         docker rmi $(docker images --filter label=oc-profile=${_profile} -q) &> /dev/null

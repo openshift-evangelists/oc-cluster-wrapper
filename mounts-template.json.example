@@ -4,7 +4,7 @@
       "imagePattern": "openshift/wildfly.*",
       "mounts": [
         {
-          "source": "$M2_HOME",
+          "source": "$M2_HOME/repository",
           "destination": "/opt/app-root/src/.m2/repository"
         }
       ]
@@ -13,7 +13,7 @@
       "imagePattern": "jorgemoralespou/s2i-java.*",
       "mounts": [
         {
-          "source": "$M2_HOME",
+          "source": "$M2_HOME/repository",
           "destination": "/opt/app-root/src/.m2/repository"
         }
       ]
@@ -22,8 +22,35 @@
       "imagePattern": ".*openjdk18-openshift.*",
       "mounts": [
         {
-          "source": "$M2_HOME",
+          "source": "$M2_HOME/repository",
           "destination": "/opt/app-root/src/.m2/repository"
+        }
+      ]
+    },
+    {
+      "imagePattern": "registry.access.redhat.com/jboss-fuse-6/.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME/repository",
+          "destination": "/home/jboss/.m2/repository"
+        }
+      ]
+    },
+    {
+      "imagePattern": "registry.access.redhat.com/jboss-webserver-3/.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME/repository",
+          "destination": "/home/jboss/.m2/repository"
+        }
+      ]
+    },
+    {
+      "imagePattern": "registry.access.redhat.com/jboss-eap-7/.*",
+      "mounts": [
+        {
+          "source": "$M2_HOME/repository",
+          "destination": "/home/jboss/.m2/repository"
         }
       ]
     },
