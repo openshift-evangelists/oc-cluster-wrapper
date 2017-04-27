@@ -27,7 +27,7 @@ function create-volume {
 
   [[ ! $__size =~ ^[[:digit:]]+[GM]i$ ]] && echo "Not a valid volume size, use <number>Gi or <number>Mi" && exit 1
 
-  oc get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
+  ${OC_BINARY} get persistentvolume ${__volume} --as=system:admin &>/dev/null && echo "The PersistentVolume already exits" && exit 1
 
   internal.setup_pv_dir $__path
 
@@ -48,7 +48,7 @@ spec:
     path: ${__path}
 EOF
 
-oc create -f /tmp/pv.yaml --as=system:admin
+${OC_BINARY} create -f /tmp/pv.yaml --as=system:admin
 rm /tmp/pv.yaml
 
 echo "Volume created in ${__path}"
@@ -75,7 +75,7 @@ function create-shared-volume {
 
   internal.setup_pv_dir $__path
 
-  oc get persistentvolume ${__volume} -n $__project --as=system:admin &>/dev/null && error_exit "The PersistentVolume already exits"
+  ${OC_BINARY} get persistentvolume ${__volume} -n $__project --as=system:admin &>/dev/null && error_exit "The PersistentVolume already exits"
 
 cat <<-EOF > /tmp/pv.yaml
 apiVersion: v1
@@ -99,7 +99,7 @@ spec:
     path: ${__path}
 EOF
 
-oc create -f /tmp/pv.yaml --as=system:admin
+${OC_BINARY} create -f /tmp/pv.yaml --as=system:admin
 rm /tmp/pv.yaml
 
 echo "Volume created in ${__path}"

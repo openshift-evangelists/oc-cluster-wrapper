@@ -10,11 +10,11 @@ function nexus3.help {
 
 function nexus3.install {
   status &> /dev/null  || error_exit "There's no cluster running"
-  oc adm new-project nexus --as=system:admin
+  ${OC_BINARY} adm new-project nexus --as=system:admin
   create-shared-volume 'nexus/nexus-pv'
-  oc create -f https://raw.githubusercontent.com/OpenShiftDemos/nexus/master/nexus3-persistent-template.yaml -n nexus --as=system:admin
-  oc new-app nexus3-persistent -p VOLUME_CAPACITY=10Gi -n nexus --as=system:admin
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n nexus
+  ${OC_BINARY} create -f https://raw.githubusercontent.com/OpenShiftDemos/nexus/master/nexus3-persistent-template.yaml -n nexus --as=system:admin
+  ${OC_BINARY} new-app nexus3-persistent -p VOLUME_CAPACITY=10Gi -n nexus --as=system:admin
+  ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) --as=system:admin -n nexus
   echo "Project 'nexus' has been created and shared with you. It has a Nexus instance that has shared storage with other clusters."
 }
 
@@ -24,7 +24,7 @@ function nexus3.uninstall {
     pvc/nexus-pv \
     template/nexus3-persistent;
   do
-    oc delete $resource --as=system:admin -n nexus
+    ${OC_BINARY} delete $resource --as=system:admin -n nexus
   done
 }
 

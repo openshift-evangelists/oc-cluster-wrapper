@@ -6,6 +6,16 @@ function prepull-images.help {
    echo "  oc-cluster prepull-images-all"
 }
 
+# This function will prepull through the registry all the layers for a specific image in an ImageStream
+# 
+#
+function prepull-layers-for-image {
+
+  ${OC_BINARY} get imagestreamtag/${IS}:${TAG} -o jsonpath='{ .image.dockerImageLayers[*].name }' | \
+  xargs -n1 -I {} curl -H "Range: bytes=0-1" -u user:${TOKEN} \
+  http://172.30.1.1:5000/v2/default/mysql/blobs/{}
+}
+
 function prepull-images-latest {
   docker pull kubernetes/guestbook
   docker pull centos/ruby-23-centos7:latest

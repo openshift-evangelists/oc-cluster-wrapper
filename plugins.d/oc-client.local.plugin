@@ -15,16 +15,16 @@ function oc-client.help {
 function oc-client.install {
   requiresInternet
   
-  oc adm new-project oc-build --as=system:admin
+  ${OC_BINARY} adm new-project oc-build --as=system:admin
 
-  oc create -f  https://raw.githubusercontent.com/csrwng/build-origin/master/origin-builder.yaml  -n oc-build --as=system:admin
+  ${OC_BINARY} create -f  https://raw.githubusercontent.com/csrwng/build-origin/master/origin-builder.yaml  -n oc-build --as=system:admin
 
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n oc-build
+  ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) --as=system:admin -n oc-build
   echo "Project 'oc-build' has been created and shared with you. It has a template for building openshift"  
 }
 
 function oc-client.uninstall {
-  oc delete project oc-build --as=system:admin
+  ${OC_BINARY} delete project oc-build --as=system:admin
 }
 
 # Arguments
@@ -44,7 +44,7 @@ function oc-client-build {
 
   local _git="https://github.com/${_name}/origin.git"
 
-  local CMDLINE="oc new-app origin-builder"
+  local CMDLINE="${OC_BINARY} new-app origin-builder"
   [ ! -z ${_git} ] && CMDLINE+=" -p SOURCE_URL=${_git}" 
   [ ! -z ${_ref} ] && CMDLINE+=" -p SOURCE_REF=${_ref}"
   [ ! -z ${_platform} ] && CMDLINE+=" -p SOURCE_REF=${_platform}"

@@ -18,7 +18,7 @@ function cockpit.install {
    docker pull cockpit/kubernetes:latest 2> /dev/null
    echo "Done"
 
-   oc adm new-project cockpit --as=system:admin
+   ${OC_BINARY} adm new-project cockpit --as=system:admin
    # Install template
    cat <<-EOF > /tmp/cockpit.yaml
    {
@@ -203,16 +203,16 @@ function cockpit.install {
    }
 EOF
 
-   oc create -f /tmp/cockpit.yaml -n cockpit --as=system:admin
+   ${OC_BINARY} create -f /tmp/cockpit.yaml -n cockpit --as=system:admin
    rm /tmp/cockpit.yaml
 
-   oc new-app cockpit -p APPLICATION_HOSTNAME=cockpit.$(domainSuffix) -p MASTER_IP=$(bindIP) -n cockpit --as=system:admin
+   ${OC_BINARY} new-app cockpit -p APPLICATION_HOSTNAME=cockpit.$(domainSuffix) -p MASTER_IP=$(bindIP) -n cockpit --as=system:admin
    echo "Project cockpit has been created and shared with you. It has a cockpit instance available at http://cockpit.$(domainSuffix)"
 }
 
 function cockpit.uninstall {
-    oc delete project cockpit --as=system:admin
-    oc delete oauthclient/cockpit-oauth --as=system:admin
+    ${OC_BINARY} delete project cockpit --as=system:admin
+    ${OC_BINARY} delete oauthclient/cockpit-oauth --as=system:admin
 }
 
 cockpit.describe

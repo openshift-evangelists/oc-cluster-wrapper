@@ -15,18 +15,21 @@ function oc-console.help {
 function oc-console.install {
   requiresInternet
   
-  oc adm new-project oc-console --as=system:admin
+  ${OC_BINARY} adm new-project oc-console --as=system:admin
 
-  oc create -f https://gist.githubusercontent.com/jwforres/707ec44e19f499a74072da3f1cbc876d/raw/e6330309669e60f9f741ee955af568d459c38741/httpd-web-console-template  -n oc-console --as=system:admin
+  ${OC_BINARY} create -f https://gist.githubusercontent.com/jwforres/707ec44e19f499a74072da3f1cbc876d/raw/e6330309669e60f9f741ee955af568d459c38741/httpd-web-console-template  -n oc-console --as=system:admin
 
-  # TODO: CORS need to be enabled for the $(domainSuffix)
+  configPatch "{\\\"corsAllowedOrigin\\\": [\\\".*\\\"]}"
+  markRestart
 
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n oc-console
+  # TODO: Change the origin-web-consoleroute from re-encrypt to passthrough
+
+  ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) --as=system:admin -n oc-console
   echo "Project 'oc-console' has been created and shared with you. It has a template for building openshift console"  
 }
 
 function oc-console.uninstall {
-  oc delete project oc-console --as=system:admin
+  ${OC_BINARY} delete project oc-console --as=system:admin
 }
 
 # Arguments
@@ -45,11 +48,12 @@ function oc-console-build {
 
   local _git="https://github.com/${_name}/origin-web-console.git"
 
-  local CMDLINE="oc new-app origin-builder"
+  local CMDLINE="${OC_BINARY} new-app origin-web-console"
   [ ! -z ${_git} ] && CMDLINE+=" -p GIT_REPO=${_git}" 
   [ ! -z ${_ref} ] && CMDLINE+=" -p GIT_REF=${_ref}"
   CMDLINE+=" -p PUBLIC_MASTER_HOSTPORT=$(bindIP):8443"
   CMDLINE+=" -p CONSOLE_PUBLIC_URL=console.$(domainSuffix)"
+  CMDLINE+=" -p DESTINATION_CA_CERT=xx"
   CMDLINE+=" -n oc-console --as=system:admin"
 
   echo "$CMDLINE"

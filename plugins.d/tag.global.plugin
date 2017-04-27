@@ -25,7 +25,7 @@ function tag-to-target {
 	local SOURCE_TAG=$2
 	local TARGET_PROJECT=$3
 	local TARGET_TAG=$4
-	local SOURCE_PROJECT=$(oc project -q)
+	local SOURCE_PROJECT=$(${OC_BINARY} project -q)
 	
 	if [[ $SOURCE_PROJECT == $TARGET_PROJECT ]]; then
 		echo "$SOURCE_PROJECT equals $TARGET_PROJECT. Use tag-latest instead."
@@ -34,10 +34,10 @@ function tag-to-target {
 	
 	echo "Tagging '$SOURCE_TAG' image stream '$IMAGE_STREAM' from '$SOURCE_PROJECT' to target project '$TARGET_PROJECT' with tag '$TARGET_TAG'..."
 		
-	oc tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG --as=system:admin
-	oc tag $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG --as=system:admin
+	${OC_BINARY} tag $SOURCE_PROJECT/$IMAGE_STREAM:$SOURCE_TAG $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG --as=system:admin
+	${OC_BINARY} tag $TARGET_PROJECT/$IMAGE_STREAM:$TARGET_TAG $TARGET_PROJECT/$IMAGE_STREAM:$SOURCE_TAG --as=system:admin
 	
-	oc label is $IMAGE_STREAM APP_VERSION=$TARGET_TAG --overwrite -n $TARGET_PROJECT --as=system:admin
+	${OC_BINARY} label is $IMAGE_STREAM APP_VERSION=$TARGET_TAG --overwrite -n $TARGET_PROJECT --as=system:admin
 }
 
 #
@@ -49,8 +49,11 @@ function show-tags {
 	[ $# -lt 1 ] && echo "ERROR: <app-name> is required." && tag.help && exit 1
     local IMAGE_STREAM=$1
 	echo "Checks where 'latest' IS of $IMAGE_STREAM points to"
-	oc describe is $IMAGE_STREAM > /tmp/is.tmp
+	${OC_BINARY} describe is $IMAGE_STREAM > /tmp/is.tmp
 	local imageID=$(cat /tmp/is.tmp | grep \* | awk -F$'/' '{print $3}' | head -n 1)
+
+# ${OC_BINARY} get is python -n openshift --template='{{range .spec.tags}}{{.name}}--{{.from.name}} {{end}}'
+# ${OC_BINARY} get is python -n openshift -o jsonpath='{range .spec.tags}{.name}--{.from.name}{end}'
 		
 	local tagNames=$(cat /tmp/is.tmp | grep -B 1 "tagged from $imageID" | sed '/^  tagged from/d' | sed '/^--/d')
 	for tag in $tagNames ; do
@@ -70,15 +73,15 @@ function tag-latest {
     local TAG_NAME=$2
         
     # getting current project
-    local SOURCE_PROJECT=$(oc project -q)
+    local SOURCE_PROJECT=$(${OC_BINARY} project -q)
     
 	# getting imagestream ID
 	# this algorythm is just taking the FIRST entry of the line starting with a '*'
-	imageID=$(oc describe is $IMAGE_STREAM | grep \* | awk -F$'/' '{print $3}' | head -n 1)
+	imageID=$(${OC_BINARY} describe is $IMAGE_STREAM | grep \* | awk -F$'/' '{print $3}' | head -n 1)
 	imageID="$SOURCE_PROJECT/"$imageID
 
-	#echo "oc tag $imageID $SOURCE_PROJECT/$IMAGE_STREAM:$TAG_NAME "
-	oc tag $imageID $SOURCE_PROJECT/$IMAGE_STREAM:$TAG_NAME
+	#echo "${OC_BINARY} tag $imageID $SOURCE_PROJECT/$IMAGE_STREAM:$TAG_NAME "
+	${OC_BINARY} tag $imageID $SOURCE_PROJECT/$IMAGE_STREAM:$TAG_NAME
 
 }
 

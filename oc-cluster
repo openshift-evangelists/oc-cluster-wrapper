@@ -2,6 +2,7 @@
 
 DOC="https://github.com/openshift-evangelists/oc-cluster-wrapper/blob/master/README.adoc"
 SCRIPT_NAME=$(basename "$0")
+OC_BINARY=${OC_BINARY:-"oc"}
 # Helpers, maybe worth in another file
 
 # Handle source locations that might be a symlink (ref: http://bit.ly/2kcvSCS)
@@ -43,12 +44,12 @@ if [[ "$__PLATFORM" == "unknown" ]]; then
 fi
 
 # Determine the version and type of client
-__VERSION=$(oc version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+__VERSION=$(${OC_BINARY} version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
 # FIX for 1.3.0 not supporting --request-timeout
 if [ -z $__VERSION ]; then
-  __VERSION=$(oc version 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+  __VERSION=$(${OC_BINARY} version 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
 fi
-if oc cluster up --help | grep -- " --image=" | grep -q "ose"; then
+if ${OC_BINARY} cluster up --help | grep -- " --image=" | grep -q "ose"; then
     __TYPE="ocp"
     __IMAGE="registry.access.redhat.com/openshift3/ose"
   else
@@ -206,13 +207,13 @@ function requiresInternet {
 # Return 0 if it supports it, non zero else
 function supports {
   if [ "$1" == "pv" ]; then
-    ret=$(oc cluster up -h | grep host-pv-dir | wc -l)
+    ret=$(${OC_BINARY} cluster up -h | grep host-pv-dir | wc -l)
     [ $ret -eq 0 ] && return 1 || return 0
   elif [ "$1" == "proxy" ]; then
-    ret=$(oc cluster up -h | grep proxy | wc -l)
+    ret=$(${OC_BINARY} cluster up -h | grep proxy | wc -l)
     [ $ret -eq 0 ] && return 1 || return 0
   elif [ "$1" == "image-streams" ]; then
-    ret=$(oc cluster up -h | grep image-streams | wc -l)
+    ret=$(${OC_BINARY} cluster up -h | grep image-streams | wc -l)
     [ $ret -eq 0 ] && return 1 || return 0
   fi
 }
@@ -430,7 +431,7 @@ function up {
     done
 
     # Build command line
-    local CMDLINE="oc cluster up"
+    local CMDLINE="${OC_BINARY} cluster up"
     [ ! -z "$__PARM_OC_VERSION" ] && CMDLINE+=" --version $__PARM_OC_VERSION" || CMDLINE+=" --version $__VERSION"
     if [ ! -z "$__PARM_OC_TYPE" ]; then
       if [ "$__PARM_OC_TYPE" == "ocp" ]; then
@@ -499,7 +500,7 @@ function up {
 
     CONTEXT="default/"$(echo $OC_CLUSTER_PUBLIC_HOSTNAME| tr -s '.' '-')":8443/system:admin"
     #Add developer as sudoer
-    oc adm policy add-cluster-role-to-group sudoer system:authenticated \
+    ${OC_BINARY} adm policy add-cluster-role-to-group sudoer system:authenticated \
         --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
         --context="$CONTEXT" 1> /dev/null
     echo "-- Any user is sudoer. They can execute commands with '--as=system:admin'"
@@ -513,20 +514,20 @@ function up {
 
     # TODO: OpenIssue and wait for it to be fixed and remove
     # Hack for metrics not properly working
-    oc adm policy add-role-to-user view system:serviceaccount:openshift-infra:hawkular -n openshift-infra --as=system:admin 1> /dev/null
+    ${OC_BINARY} adm policy add-role-to-user view system:serviceaccount:openshift-infra:hawkular -n openshift-infra --as=system:admin 1> /dev/null
 
     # Create user admin that can log into the console
-    oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin 1> /dev/null
+    ${OC_BINARY} adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin 1> /dev/null
     echo "-- User admin has been set as cluster administrator"
 
     # Create the context named after the profile to allow for reuse
     # Info from: http://kubernetes.io/docs/user-guide/kubeconfig-file/
     # TODO: Change skip-tls with the certs --certificate-authority=
-    oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true 1> /dev/null
+    ${OC_BINARY} adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true 1> /dev/null
     # TODO: Change token for secure certs: --client-certificate=path/to/my/client/cert --client-key=path/to/my/client/key
-    oc adm config set-credentials ${OS_DEFAULT_USER}/${_profile} --token=$(oc whoami -t) 1> /dev/null
-    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}/${_profile} --namespace=${OS_DEFAULT_PROJECT} 1> /dev/null
-    oc adm config use-context ${_profile} # 1> /dev/null
+    ${OC_BINARY} adm config set-credentials ${OS_DEFAULT_USER}/${_profile} --token=$(${OC_BINARY} whoami -t) 1> /dev/null
+    ${OC_BINARY} adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}/${_profile} --namespace=${OS_DEFAULT_PROJECT} 1> /dev/null
+    ${OC_BINARY} adm config use-context ${_profile} # 1> /dev/null
 
     # Add a label to the created images so that can be removed with the cluster
     echo "-- Adding an oc-profile=${_profile} label to every generated image so they can be later removed"
@@ -563,7 +564,7 @@ function up {
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
 
     # Use right context after starting up (Similar to log in)
-    oc adm config use-context ${_profile} # &> /dev/null
+    ${OC_BINARY} adm config use-context ${_profile} # &> /dev/null
 
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
@@ -617,7 +618,7 @@ function down {
 
   status &> /dev/null || return
   echo "Bringing the cluster down"
-  oc cluster down
+  ${OC_BINARY} cluster down
   # We always try to delete this container since the condition check could have changed
   docker rm -f bindmountproxy 2&> /dev/null
   rm -f $DIR/mounts.json 2&> /dev/null
@@ -642,7 +643,7 @@ function status {
 
   [[ "$(docker ps -f name=origin -q)" == "" ]] && echo "no cluster running" && return 1
   echo "oc cluster running. Current profile <$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo 'unknown')>"
-  oc cluster status
+  ${OC_BINARY} cluster status
   return 0
 }
 
@@ -694,8 +695,8 @@ function destroy {
           [ -d $OPENSHIFT_PROFILES_DIR/$_profile ] && rm -rf $OPENSHIFT_PROFILES_DIR/$_profile
         fi
         echo "Removing .kubeconfig profiles"
-        oc adm config delete-cluster $_profile &> /dev/null
-        oc adm config delete-context $_profile &> /dev/null
+        ${OC_BINARY} adm config delete-cluster $_profile &> /dev/null
+        ${OC_BINARY} adm config delete-context $_profile &> /dev/null
         # TODO: Remove the images
         local _num_images=$(docker images --filter label=oc-profile=${_profile} -q | wc -l)
         echo "Removing $((${_num_images})) images built with this cluster"

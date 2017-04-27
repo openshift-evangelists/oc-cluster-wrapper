@@ -101,18 +101,18 @@ function imagestreams {
 
   if [ ! -z $java ]
   then
-    oc import-image redhat-openjdk18-openshift:1.0 --from registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.0 --confirm -n openshift --as=system:admin
-    oc tag openshift/redhat-openjdk18-openshift:1.0 openshift/redhat-openjdk18-openshift:latest -n openshift --as=system:admin
+    ${OC_BINARY} import-image redhat-openjdk18-openshift:1.0 --from registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.0 --confirm -n openshift --as=system:admin
+    ${OC_BINARY} tag openshift/redhat-openjdk18-openshift:1.0 openshift/redhat-openjdk18-openshift:latest -n openshift --as=system:admin
     # TODO: Mark the image as a builder 
   fi
 
   for is in ${_imagestreams[@]}
   do
-    oc apply -n openshift -f "$is" --as=system:admin
+    ${OC_BINARY} apply -n openshift -f "$is" --as=system:admin
   done
 
   #jorgemoralespou s2i java image streams
-  # oc apply -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
+  # ${OC_BINARY} apply -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
 }
 
 #
@@ -253,11 +253,11 @@ function templates {
 
   for tplt in ${_templates[@]}
   do
-    oc apply -n openshift -f "$tplt" --as=system:admin
+    ${OC_BINARY} apply -n openshift -f "$tplt" --as=system:admin
   done
 
   #jorgemoralespou s2i java image streams
-  # oc apply -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
+  # ${OC_BINARY} apply -n openshift -f https://raw.githubusercontent.com/jorgemoralespou/s2i-java/master/ose3/s2i-java-imagestream.json --as=system:admin
 }
 
 imagestreams.describe

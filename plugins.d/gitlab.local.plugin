@@ -25,20 +25,20 @@ function gitlab.install {
 
   exit 
 
-  oc project ci > /dev/null 2>&1
+  ${OC_BINARY} project ci > /dev/null 2>&1
   if [[ $? == 1 ]]; then
     # project ci does not exist
-    oc adm new-project ci --as=system:admin
+    ${OC_BINARY} adm new-project ci --as=system:admin
   fi
 
-  oc adm policy add-scc-to-user anyuid system:serviceaccount:ci:gitlab-ce-user --as=system:admin
+  ${OC_BINARY} adm policy add-scc-to-user anyuid system:serviceaccount:ci:gitlab-ce-user --as=system:admin
   create-volume pv01
   create-volume pv02
   create-volume pv03
   create-volume pv04
-  oc create -f https://gitlab.com/gitlab-org/omnibus-gitlab/raw/master/docker/openshift-template.json -n ci --as=system:admin
-  oc new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci --as=system:admin
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+  ${OC_BINARY} create -f https://gitlab.com/gitlab-org/omnibus-gitlab/raw/master/docker/openshift-template.json -n ci --as=system:admin
+  ${OC_BINARY} new-app --template=gitlab-ce -p GITLAB_ROOT_PASSWORD=password -p APPLICATION_HOSTNAME=gitlab.$(domainSuffix) -n ci --as=system:admin
+  ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) --as=system:admin -n ci
   echo "Project ci has been created and shared with you. It has a gitlab instance available at http://gitlab.$(domainSuffix)"
 }
 
@@ -51,7 +51,7 @@ function gitlab.uninstall {
       pv/pv01 pv/pv02 pv/pv03 pv/pv04 \
       template/gitlab-ce;
     do
-      oc delete $resource  --as=system:admin -n ci
+      ${OC_BINARY} delete $resource  --as=system:admin -n ci
     done
 }
 

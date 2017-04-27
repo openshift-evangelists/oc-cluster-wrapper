@@ -23,10 +23,10 @@ function nexus.help {
 
 function nexus.install {
   status &> /dev/null  || error_exit "There's no cluster running"
-  oc adm new-project ci --as=system:admin
+  ${OC_BINARY} adm new-project ci --as=system:admin
   create-shared-volume 'ci/nexus-data'
-  oc create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
-  oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n ci
+  ${OC_BINARY} create -f https://raw.githubusercontent.com/openshift-evangelists/vagrant-origin/master/utils/nexus/nexus.yaml -n ci --as=system:admin
+  ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) --as=system:admin -n ci
   echo "Project ci has been created and shared with you. It has a nexus instance that has shared storage with other clusters"
 }
 

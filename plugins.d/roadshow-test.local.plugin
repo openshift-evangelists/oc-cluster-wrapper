@@ -19,38 +19,38 @@ function roadshow-test.install {
   docker pull jorgemoralespou/s2i-java:latest
   docker pull registry.access.redhat.com/jboss-eap-7/eap70-openshift:latest
 
-  oc project roadshow > /dev/null 2>&1
+  ${OC_BINARY} project roadshow > /dev/null 2>&1
   if [[ $? == 1 ]]; then
     echo "[INFO] Creating roadshow project"
     # project roadshow does not exist
-    oc adm new-project roadshow --as=system:admin
-    oc adm policy add-role-to-user admin $(oc whoami) --as=system:admin -n roadshow
+    ${OC_BINARY} adm new-project roadshow --as=system:admin
+    ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) --as=system:admin -n roadshow
   else
     echo "[WARN] Project roadshow was already existing"
   fi
-  oc project roadshow > /dev/null 2>&1
+  ${OC_BINARY} project roadshow > /dev/null 2>&1
   [[ $? == 1 ]] && echo "[ERROR] Project roadshow has not been created. Plugin install can not continue" && exit 1
 
   # create the lab guide
-  oc new-app ruby~https://github.com/openshift-evangelists/openshift-workshops.git#1.0.0 --name labs -e DEFAULT_LAB=roadshow -n roadshow
-  oc expose svc/labs --hostname=labs.$(domainSuffix) -n roadshow
+  ${OC_BINARY} new-app ruby~https://github.com/openshift-evangelists/openshift-workshops.git#1.0.0 --name labs -e DEFAULT_LAB=roadshow -n roadshow
+  ${OC_BINARY} expose svc/labs --hostname=labs.$(domainSuffix) -n roadshow
   # Lab, deploy docker image
-  oc policy add-role-to-user view -z default -n roadshow
-  oc new-app docker.io/openshiftroadshow/parksmap:1.0.0 --name parksmap -n roadshow
-  oc expose svc/parksmap -n roadshow
+  ${OC_BINARY} policy add-role-to-user view -z default -n roadshow
+  ${OC_BINARY} new-app docker.io/openshiftroadshow/parksmap:1.0.0 --name parksmap -n roadshow
+  ${OC_BINARY} expose svc/parksmap -n roadshow
   # Deploy Nationalparks backend
-  oc create -f https://raw.githubusercontent.com/openshift-roadshow/nationalparks/1.0.0/ose3/application-template.json -n roadshow
-  oc new-app nationalparks -p APPLICATION_HOSTNAME=nationalparks-roadshow.$(domainSuffix) -n roadshow
+  ${OC_BINARY} create -f https://raw.githubusercontent.com/openshift-roadshow/nationalparks/1.0.0/ose3/application-template.json -n roadshow
+  ${OC_BINARY} new-app nationalparks -p APPLICATION_HOSTNAME=nationalparks-roadshow.$(domainSuffix) -n roadshow
   # Deploy mlbparks
-  oc create -f https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json -n openshift --as=system:admin
-  oc create -f https://raw.githubusercontent.com/openshift-roadshow/mlbparks/1.0.0/ose3/application-template-eap.json -n roadshow
-  oc new-app mlbparks -p MONGODB_APPLICATION_NAME=mongodb -p APPLICATION_HOSTNAME=mlbparks-roadshow.$(domainSuffix) -n roadshow
+  ${OC_BINARY} create -f https://raw.githubusercontent.com/jboss-openshift/application-templates/master/jboss-image-streams.json -n openshift --as=system:admin
+  ${OC_BINARY} create -f https://raw.githubusercontent.com/openshift-roadshow/mlbparks/1.0.0/ose3/application-template-eap.json -n roadshow
+  ${OC_BINARY} new-app mlbparks -p MONGODB_APPLICATION_NAME=mongodb -p APPLICATION_HOSTNAME=mlbparks-roadshow.$(domainSuffix) -n roadshow
 
   echo "[INFO] Project roadshow has been created and shared with you. It has all the roadshow apps deployed for testing purposes."
 }
 
 function roadshow-test.uninstall {
-      oc delete project/roadshow --as=system:admin
+      ${OC_BINARY} delete project/roadshow --as=system:admin
 }
 
 roadshow-test.describe

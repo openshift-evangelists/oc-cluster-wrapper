@@ -20,21 +20,21 @@ function cfme.install {
    # TODO: Check if required ServiceAccount and permisions are granted. If not, call metrics-infra.install
    metrics-infra.install
 
-   oc adm new-project $_CFMENS --description='Cloudforms Project' --display-name='cloudforms'
-   oc adm policy add-scc-to-user privileged -z defaul -n $_CFMENS --as=system:admin
+   ${OC_BINARY} adm new-project $_CFMENS --description='Cloudforms Project' --display-name='cloudforms'
+   ${OC_BINARY} adm policy add-scc-to-user privileged -z defaul -n $_CFMENS --as=system:admin
 
    #create-volume cfme-pgdb-volume
    #create-volume cfme-app-volume
 
-   oc create -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/cfme-templates/cfme-template.yaml -n openshift --as=system:admin
+   ${OC_BINARY} create -f https://raw.githubusercontent.com/openshift/openshift-ansible/master/roles/openshift_examples/files/examples/v1.4/cfme-templates/cfme-template.yaml -n openshift --as=system:admin
    echo "Cloudforms template installed in the openshift project"
-   oc new-app --template=cloudforms -n $_CFMENS --as=system:admin
+   ${OC_BINARY} new-app --template=cloudforms -n $_CFMENS --as=system:admin
 
-   __cloudforms_url=$(oc get route cloudforms -o jsonpath='https://{.spec.host}' -n $_CFMENS --as=system:admin)
+   __cloudforms_url=$(${OC_BINARY} get route cloudforms -o jsonpath='https://{.spec.host}' -n $_CFMENS --as=system:admin)
 
    for __dc in postgresql memcached cloudforms
    do
-     oc set triggers dc/${__dc} --auto -n $_CFMENS --as=system:admin
+     ${OC_BINARY} set triggers dc/${__dc} --auto -n $_CFMENS --as=system:admin
    done
 
    # Testint if CF is alive:
@@ -56,9 +56,9 @@ function cfme.install {
 }
 
 function metrics-infra.install {
-oc adm new-project -n $_MI_NS --description="Management Infrastructure" --as=system:admin
+${OC_BINARY} adm new-project -n $_MI_NS --description="Management Infrastructure" --as=system:admin
 
-oc create -n $_MI_NS --as=system:admin -f - << EOF
+${OC_BINARY} create -n $_MI_NS --as=system:admin -f - << EOF
   apiVersion: v1
   kind: ClusterRole
   metadata:
@@ -70,7 +70,7 @@ oc create -n $_MI_NS --as=system:admin -f - << EOF
     - '*'
 EOF
 
-oc create -n $_MI_NS --as=system:admin -f - << EOF
+${OC_BINARY} create -n $_MI_NS --as=system:admin -f - << EOF
   apiVersion: v1
   kind: ClusterRole
   metadata:
@@ -85,36 +85,36 @@ oc create -n $_MI_NS --as=system:admin -f - << EOF
     - '*'
 EOF
 
-oc create -n $_MI_NS --as=system:admin -f - << EOF
+${OC_BINARY} create -n $_MI_NS --as=system:admin -f - << EOF
   apiVersion: v1
   kind: ServiceAccount
   metadata:
     name: management-admin
 EOF
 
-oc create -n $_MI_NS --as=system:admin -f - << EOF
+${OC_BINARY} create -n $_MI_NS --as=system:admin -f - << EOF
   apiVersion: v1
   kind: ServiceAccount
   metadata:
     name: inspector-admin
 EOF
 
-oc adm policy add-role-to-user admin -z management-admin -n $_MI_NS --as=system:admin
-oc adm policy add-role-to-user management-infra-admin -z management-admin  -n $_MI_NS --as=system:admin
-oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:$_MI_NS:management-admin --as=system:admin
-oc adm policy add-scc-to-user privileged -z management-admin -n $_MI_NS --as=system:admin
-oc adm policy add-cluster-role-to-user system:image-puller system:serviceaccount:$_MI_NS:inspector-admin --as=system:admin
-oc adm policy add-scc-to-user privileged -z inspector-admin -n $_MI_NS --as=system:admin
-oc adm policy add-cluster-role-to-user self-provisioner system:serviceaccount:$_MI_NS:management-admin --as=system:admin
-oc adm policy add-cluster-role-to-user hawkular-metrics-admin system:serviceaccount:$_MI_NS:management-admin --as=system:admin
-oc adm policy add-cluster-role-to-user system:image-auditor system:serviceaccount:$_MI_NS:management-admin --as=system:admin
+${OC_BINARY} adm policy add-role-to-user admin -z management-admin -n $_MI_NS --as=system:admin
+${OC_BINARY} adm policy add-role-to-user management-infra-admin -z management-admin  -n $_MI_NS --as=system:admin
+${OC_BINARY} adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:$_MI_NS:management-admin --as=system:admin
+${OC_BINARY} adm policy add-scc-to-user privileged -z management-admin -n $_MI_NS --as=system:admin
+${OC_BINARY} adm policy add-cluster-role-to-user system:image-puller system:serviceaccount:$_MI_NS:inspector-admin --as=system:admin
+${OC_BINARY} adm policy add-scc-to-user privileged -z inspector-admin -n $_MI_NS --as=system:admin
+${OC_BINARY} adm policy add-cluster-role-to-user self-provisioner system:serviceaccount:$_MI_NS:management-admin --as=system:admin
+${OC_BINARY} adm policy add-cluster-role-to-user hawkular-metrics-admin system:serviceaccount:$_MI_NS:management-admin --as=system:admin
+${OC_BINARY} adm policy add-cluster-role-to-user system:image-auditor system:serviceaccount:$_MI_NS:management-admin --as=system:admin
 }
 
 function cfme.register {
-  local __cloudforms_url=$(oc get route cloudforms -o jsonpath='https://{.spec.host}' -n $_CFMENS --as=system:admin)
+  local __cloudforms_url=$(${OC_BINARY} get route cloudforms -o jsonpath='https://{.spec.host}' -n $_CFMENS --as=system:admin)
 
   # Register the cluster
-  local __token=$(oc sa get-token management-admin -n $_MI_NS --as=system:admin)
+  local __token=$(${OC_BINARY} sa get-token management-admin -n $_MI_NS --as=system:admin)
 
   curl -s --insecure --user admin:smartvm -X POST -H "Accept: application/json" -o /dev/null -d \
 '{
@@ -148,16 +148,16 @@ ${__cloudforms_url}/api/providers
 }
 
 function management-infra.uninstall {
-   oc delete project $_MI_NS --as=system:admin
+   ${OC_BINARY} delete project $_MI_NS --as=system:admin
 }
 
 function cfme.uninstall {
    echo "Uninstalling Cloudforms"
-   #oc delete pv cfme-pgdb-volume --as=system:admin
-   #oc delete pv cfme-app-volume --as=system:admin
+   #${OC_BINARY} delete pv cfme-pgdb-volume --as=system:admin
+   #${OC_BINARY} delete pv cfme-app-volume --as=system:admin
 
    management-infra.uninstall
-   oc delete project $_CFMENS --as=system:admin
+   ${OC_BINARY} delete project $_CFMENS --as=system:admin
 }
 
 cfme.describe

@@ -14,8 +14,8 @@ function datadog.help {
 function datadog.install {
   status &> /dev/null  || error_exit "There's no cluster running"
   
-  oc adm policy add-scc-to-group hostmount-anyuid system:serviceaccounts:openshift-infra --as=system:admin
-  oc create -n openshift-infra --as=system:admin -f - <<-EOF
+  ${OC_BINARY} adm policy add-scc-to-group hostmount-anyuid system:serviceaccounts:openshift-infra --as=system:admin
+  ${OC_BINARY} create -n openshift-infra --as=system:admin -f - <<-EOF
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:

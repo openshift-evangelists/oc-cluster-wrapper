@@ -14,7 +14,7 @@ function registryv2.help {
 function registryv2.install {
    status &> /dev/null  || error_exit "There's no cluster running"
 
-   oc set env dc/docker-registry -n default REGISTRY_MIDDLEWARE_REPOSITORY_OPENSHIFT_ACCEPTSCHEMA2=true --as=system:admin
+   ${OC_BINARY} set env dc/docker-registry -n default REGISTRY_MIDDLEWARE_REPOSITORY_OPENSHIFT_ACCEPTSCHEMA2=true --as=system:admin
 }
 
 function registryv2.uninstall {

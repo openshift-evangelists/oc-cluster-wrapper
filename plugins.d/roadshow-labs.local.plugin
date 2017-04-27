@@ -11,17 +11,17 @@ function roadshow-labs.help {
 function roadshow-labs.install {
   requiresInternet
 
-  oc adm new-project roadshow-labs --as=system:admin
+  ${OC_BINARY} adm new-project roadshow-labs --as=system:admin
 
-  oc new-app wildfly~https://github.com/openshift-evangelists/workshopper.git -e WORKSHOPS_URLS=https://raw.githubusercontent.com/jorgemoralespou/workshopper-workshops/master/roadshow-oc-cluster.yml -e DEFAULT_LAB=roadshow -n roadshow-labs --as=system:admin
-  oc set probe dc/workshopper --readiness --get-url=http://:8080/index.jsp --initial-delay-seconds=10 -n roadshow-labs --as=system:admin
-  oc set probe dc/workshopper --liveness --get-url=http://:8080/index.jsp --initial-delay-seconds=10 -n roadshow-labs --as=system:admin
-  oc expose svc/workshopper --hostname=labs.$(domainSuffix) -n roadshow-labs --as=system:admin
-  oc adm policy add-role-to-user admin $(oc whoami) -n roadshow-labs --as=system:admin
+  ${OC_BINARY} new-app wildfly~https://github.com/openshift-evangelists/workshopper.git -e WORKSHOPS_URLS=https://raw.githubusercontent.com/jorgemoralespou/workshopper-workshops/master/roadshow-oc-cluster.yml -e DEFAULT_LAB=roadshow -n roadshow-labs --as=system:admin
+  ${OC_BINARY} set probe dc/workshopper --readiness --get-url=http://:8080/index.jsp --initial-delay-seconds=10 -n roadshow-labs --as=system:admin
+  ${OC_BINARY} set probe dc/workshopper --liveness --get-url=http://:8080/index.jsp --initial-delay-seconds=10 -n roadshow-labs --as=system:admin
+  ${OC_BINARY} expose svc/workshopper --hostname=labs.$(domainSuffix) -n roadshow-labs --as=system:admin
+  ${OC_BINARY} adm policy add-role-to-user admin $(${OC_BINARY} whoami) -n roadshow-labs --as=system:admin
 }
 
 function roadshow-labs.uninstall {
-      oc delete project/roadshow-labs --as=system:admin
+      ${OC_BINARY} delete project/roadshow-labs --as=system:admin
 }
 
 roadshow-labs.describe
