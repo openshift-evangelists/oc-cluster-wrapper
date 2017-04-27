@@ -501,37 +501,37 @@ function up {
     #Add developer as sudoer
     oc adm policy add-cluster-role-to-group sudoer system:authenticated \
         --config="${OPENSHIFT_HOST_CONFIG_DIR}/master/admin.kubeconfig" \
-        --context="$CONTEXT" &> /dev/null
+        --context="$CONTEXT" 1> /dev/null
     echo "-- Any user is sudoer. They can execute commands with '--as=system:admin'"
 
     # Prefill with 10 volumes
     for i in $(seq -f %02g 1 $OC_CLUSTER_PREFILL_PVS)
     do
-      create-volume vol${i} &> /dev/null
+      create-volume vol${i} 1> /dev/null
     done
     echo "-- $OC_CLUSTER_PREFILL_PVS Persistent Volumes are available for use"
 
     # TODO: OpenIssue and wait for it to be fixed and remove
     # Hack for metrics not properly working
-    oc adm policy add-role-to-user view system:serviceaccount:openshift-infra:hawkular -n openshift-infra --as=system:admin &> /dev/null
+    oc adm policy add-role-to-user view system:serviceaccount:openshift-infra:hawkular -n openshift-infra --as=system:admin 1> /dev/null
 
     # Create user admin that can log into the console
-    oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin &> /dev/null
+    oc adm policy add-cluster-role-to-user cluster-admin admin --as=system:admin 1> /dev/null
     echo "-- User admin has been set as cluster administrator"
 
     # Create the context named after the profile to allow for reuse
     # Info from: http://kubernetes.io/docs/user-guide/kubeconfig-file/
     # TODO: Change skip-tls with the certs --certificate-authority=
-    oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true &> /dev/null
+    oc adm config set-cluster ${_profile} --server=https://$OC_CLUSTER_PUBLIC_HOSTNAME:8443 --insecure-skip-tls-verify=true 1> /dev/null
     # TODO: Change token for secure certs: --client-certificate=path/to/my/client/cert --client-key=path/to/my/client/key
-    oc adm config set-credentials ${OS_DEFAULT_USER}/${_profile} --token=$(oc whoami -t) &> /dev/null
-    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}/${_profile} --namespace=${OS_DEFAULT_PROJECT} &> /dev/null
-    oc adm config use-context ${_profile} # &> /dev/null
+    oc adm config set-credentials ${OS_DEFAULT_USER}/${_profile} --token=$(oc whoami -t) 1> /dev/null
+    oc adm config set-context ${_profile} --cluster=${_profile} --user=${OS_DEFAULT_USER}/${_profile} --namespace=${OS_DEFAULT_PROJECT} 1> /dev/null
+    oc adm config use-context ${_profile} # 1> /dev/null
 
     # Add a label to the created images so that can be removed with the cluster
     echo "-- Adding an oc-profile=${_profile} label to every generated image so they can be later removed"
     # TODO: Add oc-version once I set up the versions
-    configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" &> /dev/null
+    configPatch "{\\\"admissionConfig\\\": {\\\"pluginConfig\\\": {\\\"BuildDefaults\\\": {\\\"configuration\\\": {\\\"apiVersion\\\": \\\"v1\\\",\\\"kind\\\": \\\"BuildDefaultsConfig\\\",\\\"imageLabels\\\": [{\\\"name\\\": \\\"oc-profile\\\",\\\"value\\\": \\\"${_profile}\\\"}]}}}}}" 1> /dev/null
 
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
