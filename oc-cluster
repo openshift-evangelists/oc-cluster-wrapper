@@ -689,7 +689,7 @@ function destroy {
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
         # To avoid permission error in linux, we remove the profile using the openshift container
-        docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles:Z --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile
+        docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile
         echo "Removing .kubeconfig profiles"
         ${OC_BINARY} adm config delete-cluster $_profile 1> /dev/null
         ${OC_BINARY} adm config delete-context $_profile 1> /dev/null
@@ -720,11 +720,15 @@ function list {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
 
   echo "Profiles:"
-  [[ ! -d "$OPENSHIFT_PROFILES_DIR/" ]] && error_exit "[ERROR] Missing profiles dir [$OPENSHIFT_PROFILES_DIR]"
-  for i in `ls $OPENSHIFT_PROFILES_DIR`
-  do
-    echo "- $i"
-  done
+  if [[ -d "$OPENSHIFT_PROFILES_DIR/" ]]
+  then 
+    for i in `ls $OPENSHIFT_PROFILES_DIR`
+    do
+      echo "- $i"
+    done
+  else
+    echo "<No profiles>"
+  fi
 }
 
 function list.help {
