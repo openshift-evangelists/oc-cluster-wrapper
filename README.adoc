@@ -33,11 +33,20 @@ echo 'PATH=$HOME/oc-cluster-wrapper:$PATH' >> $HOME/.bash_profile
 echo 'export PATH' >> $HOME/.bash_profile
 ----
 
-If you want to add bash completion:
+If you want to add bash completion and are using Homebrew:
 
 ----
 $HOME/oc-cluster-wrapper/oc-cluster completion bash > $(brew --prefix)/etc/bash_completion.d/oc-cluster.bash
 ----
+
+If you're not using Homebrew, source a completion file:
+
+----
+$HOME/oc-cluster-wrapper/oc-cluster completion bash > $HOME/.oc-cluster.bash
+echo 'source ./.oc-cluster.bash' >> $HOME/.bash_profile
+----
+
+Note that bash completion will not work until your first "oc-cluster up" populates $HOME/.oc/profiles.
 
 == What it provides
 This script provides the following enhancements:
