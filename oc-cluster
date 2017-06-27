@@ -63,10 +63,16 @@ GROUP="$(id -g)"
 
 OPENSHIFT_HOME_DIR=${OPENSHIFT_HOME:-$HOME/.oc}
 OPENSHIFT_PROFILES_DIR=${OPENSHIFT_PROFILES_DIR:-$OPENSHIFT_HOME_DIR/profiles}
+OPENSHIFT_CERTS_DIR=${OPENSHIFT_CERTS_DIR:-$OPENSHIFT_HOME_DIR/certs}
 PLUGINS_DIR=${PLUGINS_DIR:-$DIR/plugins.d}
 OC_CLUSTER_PREFILL_PVS=${OC_CLUSTER_PREFILL_PVS:-10}
 OC_CLUSTER_TZ=${OC_CLUSTER_TZ:-$(date +%Z)}
 OC_CLUSTER_MOUNTS=${OC_CLUSTER_MOUNTS:-$DIR/mounts.json}
+# Self signed CA vars
+OPENSHIFT_CA_CRT=${OPENSHIFT_CA_CRT:-$OPENSHIFT_CERTS_DIR/openshift-selfsigned-local-ca.crt}
+OPENSHIFT_CA_KEY=${OPENSHIFT_CA_KEY:-$OPENSHIFT_CERTS_DIR/openshift-selfsigned-local-ca.key}
+OPENSHIFT_CA_SERIAL=${OPENSHIFT_CA_SERIAL:-$OPENSHIFT_CERTS_DIR/openshift-selfsigned-local-ca.serial}
+OPENSHIFT_CA_SIGNER=${OPENSHIFT_CA_SIGNER:-"selfsigners@openshift.local"}
 # Variables for Developer mode
 M2_HOME=${M2_HOME:-$HOME/.m2}
 
@@ -251,6 +257,19 @@ function up {
     shift # Remove profile name
   fi
 
+  # Check that the certs exist, otherwise, create them
+  [ ! -d "${OPENSHIFT_CERTS_DIR}" ] && mkdir -p "${OPENSHIFT_CERTS_DIR}"
+  if [ ! -f "${OPENSHIFT_CA_CRT}" ] || [ ! -f "${OPENSHIFT_CA_KEY}" ] || [ ! -f ${OPENSHIFT_CA_SERIAL} ]
+  then
+    ${OC_BINARY} adm ca create-signer-cert \
+                 --cert "${OPENSHIFT_CA_CRT}" \
+                 --key "${OPENSHIFT_CA_KEY}" \
+                 --serial "${OPENSHIFT_CA_SERIAL}" \
+                 --name="${OPENSHIFT_CA_SIGNER}" \
+                 --overwrite
+    echo "Created self signed CA to issue openshift certificates at ${OPENSHIFT_CERTS_DIR}"
+  fi
+
   # If there is a mounts.json file then we want to start
   # the cluster in DEVELOPMENT_MODE
   if [ -e $DIR/mounts-template.json ]
@@ -278,12 +297,14 @@ function up {
     # This is where oc cluster stores it's data
     local OPENSHIFT_HOST_DATA_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/data
     local OPENSHIFT_HOST_CONFIG_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/config
+    local OPENSHIFT_HOST_MASTER_DIR=$OPENSHIFT_HOST_CONFIG_DIR/master
     local OPENSHIFT_HOST_VOLUMES_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/volumes
     local OPENSHIFT_HOST_PLUGINS_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/plugins
     local OPENSHIFT_HOST_PV_DIR=$OPENSHIFT_PROFILES_DIR/$_profile/pv
 
     mkdir -p $OPENSHIFT_PROFILES_DIR/$_profile
     mkdir -p $OPENSHIFT_HOST_CONFIG_DIR
+    mkdir -p $OPENSHIFT_HOST_MASTER_DIR
     mkdir -p $OPENSHIFT_HOST_DATA_DIR
     mkdir -p $OPENSHIFT_HOST_VOLUMES_DIR
     mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
@@ -469,6 +490,12 @@ function up {
     fi
     CMDLINE+=" --use-existing-config"
     CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
+    # Add Self signed certificates to the profile
+    mkdir -p ${OPENSHIFT_HOST_MASTER_DIR}
+    cp -f ${OPENSHIFT_CA_CRT} ${OPENSHIFT_HOST_MASTER_DIR}/ca.crt
+    cp -f ${OPENSHIFT_CA_KEY} ${OPENSHIFT_HOST_MASTER_DIR}/ca.key
+    cp -f ${OPENSHIFT_CA_SERIAL} ${OPENSHIFT_HOST_MASTER_DIR}/ca.serial.txt
+    echo "[INFO] Self signer CA copied into the cluster"
     
     # TODO: If --server_log-level=0
     # TODO: If -e or --env
