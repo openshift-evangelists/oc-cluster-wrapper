@@ -30,7 +30,7 @@ function which-ip {
     if [ -e /sbin/ip ];
     then
       /sbin/ip a show dev docker0  | grep "inet " | awk -F: '{print $1}' | awk '{print $2}' | cut -d "/" -f 1;
-    else  
+    else
       /sbin/ifconfig docker0 | grep "inet " | awk -F: '{print $1}' | awk '{print $2}'
     fi
   elif [[ "$__PLATFORM" == "macosx" ]]; then
@@ -359,7 +359,7 @@ function up {
           else
             __PARM_OC_LOGGING="true"
             shift; # past argument
-          fi  
+          fi
           ;;
         --metrics=*)
           [ ! -z "$__PARM_OC_METRICS" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
@@ -375,7 +375,7 @@ function up {
           else
             __PARM_OC_METRICS="true"
             shift; # past argument
-          fi  
+          fi
           ;;
         --http-proxy=*)
           [ ! -z "$__PARM_OC_HTTP_PROXY" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
@@ -439,12 +439,12 @@ function up {
           [ ! -z "$__PARM_OC_ROUTING_SUFFIX" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
           __PARM_OC_ROUTING_SUFFIX="$2"
           shift 2; # past argument
-          ;; 
+          ;;
         --use-existing-config|--skip-registry-check|--server-loglevel|--create-machine|--docker-machine|--forward-ports|--host-config-dir|--host-data-dir|--host-pv-dir|--host-volumes-dir)
           echo "Parameter $_key not supported. Remove it to use this tool"
           exit 1
           ;;
-        *)  
+        *)
           echo "Parameter $_key not supported. It will not be used"
           shift
           ;;
@@ -496,7 +496,7 @@ function up {
     cp -f ${OPENSHIFT_CA_KEY} ${OPENSHIFT_HOST_MASTER_DIR}/ca.key
     cp -f ${OPENSHIFT_CA_SERIAL} ${OPENSHIFT_HOST_MASTER_DIR}/ca.serial.txt
     echo "[INFO] Self signer CA copied into the cluster"
-    
+
     # TODO: If --server_log-level=0
     # TODO: If -e or --env
     # TODO: Once all the command line has been processed and swallow. Don't pass additional
@@ -589,7 +589,7 @@ function up {
     status &> /dev/null || error_exit "[ERROR] Cluster has not started correctly. Profile configuration will be preserved"
     # Create the profile markfile
     echo "${_profile}" > $OPENSHIFT_HOME_DIR/active_profile
-    
+
     # Fix permissions in linux
     if [[ "$__PLATFORM" == "linux" ]]; then
       docker exec origin chown -R $USER:$GROUP $(internalProfileDir)
@@ -748,7 +748,7 @@ function list {
 
   echo "Profiles:"
   if [[ -d "$OPENSHIFT_PROFILES_DIR/" ]]
-  then 
+  then
     for i in `ls $OPENSHIFT_PROFILES_DIR`
     do
       echo "- $i"
@@ -1003,7 +1003,7 @@ function help {
   echo "  oc-cluster destroy [profile]"
   echo "  oc-cluster list"
   echo "  oc-cluster status"
-  echo "  oc-cluster show"
+  echo "  oc-cluster show [profile]"
   echo "  oc-cluster ssh"
   echo "  oc-cluster console"
   echo "  oc-cluster completion bash"
