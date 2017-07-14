@@ -1,0 +1,48 @@
+#!/bin/bash
+
+function prometheus.describe {
+  echo "Installs a prometheus in the specified namespace (or kube-system) by default"
+  echo "Arguments:"
+  echo "  - [namespace]: namespace flag to specify a different namespace for install/uninstall"
+}
+
+
+function prometheus.help {
+  echo ""
+}
+
+
+function prometheus.install {
+  status &> /dev/null  || error_exit "There's no cluster running"
+  requiresInternet
+  local _namespace="${1:-kube-system}"
+
+  local _project=$(${OC_BINARY} get project -o jsonpath='{.items[?(@.metadata.name=="'${_namespace}'")].metadata.name}' --as=system:admin)
+  if [[ "${_project}" == "" ]]; then
+    # project ci does not exist
+    ${OC_BINARY} adm new-project ${_namespace} --as=system:admin
+  fi
+
+  # oc adm new-project prometheus
+  ${OC_BINARY} new-app -f https://raw.githubusercontent.com/openshift/origin/master/examples/prometheus/prometheus.yaml -p NAMESPACE=${_namespace} -n ${_namespace} --as=system:admin
+  #
+  # Add labels to things for easy removal
+  ${OC_BINARY} label svc/prometheus app=prometheus -n ${_namespace} --as=system:admin
+  ${OC_BINARY} label configmap/prometheus app=prometheus -n ${_namespace} --as=system:admin
+  ${OC_BINARY} label secret/prometheus-proxy app=prometheus -n ${_namespace} --as=system:admin
+  ${OC_BINARY} label secret/prometheus-tls app=prometheus -n ${_namespace} --as=system:admin
+  ${OC_BINARY} label sa/prometheus app=prometheus -n ${_namespace} --as=system:admin
+  ${OC_BINARY} label clusterrolebinding/prometheus-cluster-reader app=prometheus --as=system:admin
+  # Look maybe into modifying the route here
+  # oc expose svc/prometheus --name=prometheus-2 --hostname=prometheus.#{routing-suffix} --tls=reencrypt --port=prometheus -l app=prometheus -n ${_namespace}
+
+}
+
+function prometheus.uninstall {
+  status &> /dev/null  || error_exit "There's no cluster running"
+  local _namespace="${1:-kube-system}"
+
+  ${OC_BINARY} delete sa,clusterrolebinding,route,svc,secret,deployment,configmap -l app=prometheus -n ${_namespace} --as=system:admin
+}
+
+prometheus.describe

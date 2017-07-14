@@ -18,12 +18,10 @@ function gitlab.install {
   # Prepull the images
   if [ "$1" == "--pull" ]
   then
-    docker pull gitlab/gitlab-ce:9.0.5-ce.0
+    docker pull gitlab/gitlab-ce:9.1.1-ce.0
     docker pull redis:3.2.3-alpine
     docker pull centos/postgresql-94-centos7:latest
   fi
-
-  exit 
 
   ${OC_BINARY} project ci > /dev/null 2>&1
   if [[ $? == 1 ]]; then

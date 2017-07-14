@@ -259,16 +259,17 @@ function up {
 
   # Check that the certs exist, otherwise, create them
   [ ! -d "${OPENSHIFT_CERTS_DIR}" ] && mkdir -p "${OPENSHIFT_CERTS_DIR}"
-  if [ ! -f "${OPENSHIFT_CA_CRT}" ] || [ ! -f "${OPENSHIFT_CA_KEY}" ] || [ ! -f ${OPENSHIFT_CA_SERIAL} ]
-  then
-    ${OC_BINARY} adm ca create-signer-cert \
-                 --cert "${OPENSHIFT_CA_CRT}" \
-                 --key "${OPENSHIFT_CA_KEY}" \
-                 --serial "${OPENSHIFT_CA_SERIAL}" \
-                 --name="${OPENSHIFT_CA_SIGNER}" \
-                 --overwrite
-    echo "Created self signed CA to issue openshift certificates at ${OPENSHIFT_CERTS_DIR}"
-  fi
+#    ${OC_BINARY} adm ca create-signer-cert \
+#                 --cert "${OPENSHIFT_CA_CRT}" \
+#                 --key "${OPENSHIFT_CA_KEY}" \
+#                 --serial "${OPENSHIFT_CA_SERIAL}" \
+#                 --name="${OPENSHIFT_CA_SIGNER}"
+    ${OC_BINARY} adm ca create-master-certs \
+                 --cert-dir=${OPENSHIFT_CERTS_DIR} \
+                 --master=https://${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}:8443 \
+                 --public-master=https://${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}:8443  \
+                 --hostnames=kubernetes,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster,kubernetes.default.svc.cluster.local,localhost,openshift,openshift.default,openshift.default.svc,openshift.default.svc.cluster,openshift.default.svc.cluster.local,127.0.0.1,172.17.0.1,172.30.0.1,192.168.65.2 1> /dev/null
+    echo "[INFO] Created self signed certs. You can avoid self signed certificates warnings by trusting this certificate: ${OPENSHIFT_CERTS_DIR}/master.server.crt"
 
   # If there is a mounts.json file then we want to start
   # the cluster in DEVELOPMENT_MODE
@@ -492,10 +493,8 @@ function up {
     CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
     # Add Self signed certificates to the profile
     mkdir -p ${OPENSHIFT_HOST_MASTER_DIR}
-    cp -f ${OPENSHIFT_CA_CRT} ${OPENSHIFT_HOST_MASTER_DIR}/ca.crt
-    cp -f ${OPENSHIFT_CA_KEY} ${OPENSHIFT_HOST_MASTER_DIR}/ca.key
-    cp -f ${OPENSHIFT_CA_SERIAL} ${OPENSHIFT_HOST_MASTER_DIR}/ca.serial.txt
-    echo "[INFO] Self signer CA copied into the cluster"
+    cp -pf ${OPENSHIFT_CERTS_DIR}/*.{crt,key,txt} ${OPENSHIFT_HOST_MASTER_DIR}
+    echo "[INFO] Shared certificates copied into the cluster"
     
     # TODO: If --server_log-level=0
     # TODO: If -e or --env
@@ -613,12 +612,12 @@ function up.help {
   echo "Available Environement variables:"
   echo ""
   echo "OC_CLUSTER_PUBLIC_HOSTNAME (defaults to 127.0.0.1)"
-  echo "OC_CLUSTER_ROUTING_SUFFIX (defaults to apps.127.0.0.1.xip.ip)"
+  echo "OC_CLUSTER_ROUTING_SUFFIX (defaults to apps.127.0.0.1.nip.io)"
   echo ""
   echo "Available Arguments:"
   echo ""
-  echo "--public-hostname='${OC_CLUSTER_PUBLIC_HOSTNAME}': Hostname to expose the master server"
-  echo "--routing-suffix='${OC_CLUSTER_ROUTING_SUFFIX}': Default wildcard dns for your router"
+  echo "--public-hostname='${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}': Hostname to expose the master server"
+  echo "--routing-suffix='${OC_CLUSTER_ROUTING_SUFFIX:-apps.${OC_CLUSTER_PUBLIC_HOSTNAME:-127.0.0.1}.nip.io}': Default wildcard dns for your router"
   echo "--version='${__VERSION}'"
   echo "--type='': Specify the type of install ocp|origin. Overrides --image if set"
   echo "--image='openshift/origin': Specify the openshift image to use"
@@ -716,6 +715,9 @@ function destroy {
         fi
         echo "Removing $OPENSHIFT_PROFILES_DIR/$_profile"
         # To avoid permission error in linux, we remove the profile using the openshift container
+        # TODO: We should use the __VERSION used to create the container, and not the one of the client
+        #       as if we update the client, don't create a new cluster but destroy an old one, 
+        #       it will pull down the __VERSION image
         docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile
         echo "Removing .kubeconfig profiles"
         ${OC_BINARY} adm config delete-cluster $_profile 1> /dev/null
