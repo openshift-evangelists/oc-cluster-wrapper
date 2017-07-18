@@ -215,6 +215,9 @@ function supports {
   if [ "$1" == "pv" ]; then
     ret=$(${OC_BINARY} cluster up -h | grep host-pv-dir | wc -l)
     [ $ret -eq 0 ] && return 1 || return 0
+  elif [ "$1" == "service-catalog" ]; then
+    ret=$(${OC_BINARY} cluster up -h | grep service-catalog | wc -l)
+    [ $ret -eq 0 ] && return 1 || return 0
   elif [ "$1" == "proxy" ]; then
     ret=$(${OC_BINARY} cluster up -h | grep proxy | wc -l)
     [ $ret -eq 0 ] && return 1 || return 0
@@ -378,6 +381,22 @@ function up {
             shift; # past argument
           fi  
           ;;
+        --service-catalog=*)
+          [ ! -z "$__PARM_OC_SERVICECATALOG" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
+          __PARM_OC_SERVICECATALOG="${_key#*=}"
+          shift # past argument
+          ;;
+        --service-catalog)
+          [ ! -z "$__PARM_OC_SERVICECATALOG" ] && echo "Parameter $_key has already been set. Remove the duplicate occurence" && exit 1
+          if [[ "$2" == "true" ]] || [[ "$2" == "false" ]]
+          then
+            __PARM_OC_SERVICECATALOG="$2"
+            shift 2; # past argument
+          else
+            __PARM_OC_SERVICECATALOG="true"
+            shift; # past argument
+          fi
+          ;;
         --http-proxy=*)
           [ ! -z "$__PARM_OC_HTTP_PROXY" ] && echo "Parameter ${_key%=*} has already been set. Remove the duplicate occurence" && exit 1
           __PARM_OC_HTTP_PROXY="${_key#*=}"
@@ -484,6 +503,9 @@ function up {
     CMDLINE+=" --routing-suffix $OC_CLUSTER_ROUTING_SUFFIX"
     [ ! -z $__PARM_OC_METRICS ] && CMDLINE+=" --metrics $__PARM_OC_METRICS"
     [ ! -z $__PARM_OC_LOGGING ] && CMDLINE+=" --logging $__PARM_OC_LOGGING"
+    if supports service-catalog; then
+      [ ! -z $__PARM_OC_SERVICECATALOG ] && CMDLINE+=" --service-catalog $__PARM_OC_SERVICECATALOG"
+    fi
     CMDLINE+=" --host-data-dir $OPENSHIFT_HOST_DATA_DIR"
     CMDLINE+=" --host-config-dir $OPENSHIFT_HOST_CONFIG_DIR"
     if supports pv; then
