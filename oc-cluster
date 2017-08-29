@@ -740,7 +740,13 @@ function destroy {
         # TODO: We should use the __VERSION used to create the container, and not the one of the client
         #       as if we update the client, don't create a new cluster but destroy an old one, 
         #       it will pull down the __VERSION image
-        docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile
+
+# I see when I remove a profile with SELinux that in ~/.oc/profiles/<profile> there is two different selinux labels
+# system_u:object_r:container_file_t:s0 for the config dir
+# unconfined_u:object_r:user_home_t:s0 for all the other dirs
+# Also I can not manually remove this file .oc/profiles/default/data/member as it is owned by root
+# I've added a z for the mount. Not sure if it should be a Z, or if I should do a chcon....
+        docker run --rm -v $OPENSHIFT_PROFILES_DIR:/profiles:z --entrypoint /usr/bin/rm $__IMAGE:$__VERSION -rf /profiles/$_profile
         echo "Removing .kubeconfig profiles"
         ${OC_BINARY} adm config delete-cluster $_profile 1> /dev/null
         ${OC_BINARY} adm config delete-context $_profile 1> /dev/null
