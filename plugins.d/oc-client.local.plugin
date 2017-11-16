@@ -64,7 +64,15 @@ function get-oc-client {
   [ ! -d $_dest_dir ] && echo "[ERROR] Destination dir must exist. oc client if existent, will be overwritten there" && oc-client.help && exit 1 
   if [ "$_platform" == "macosx" ]
   then
-    curl http://build-origin-oc-build.$(domainSuffix)/darwin/amd64/oc -o ${_dest_dir}/oc
+    OC_TEMP=$(mktemp)
+    curl http://build-origin-oc-build.$(domainSuffix)/darwin/amd64/oc -o $OC_TEMP
+    chmod +x ${OC_TEMP}
+
+    OC_TEMP_VERSION=$(${OC_TEMP} version --request-timeout=1 2> /dev/null | grep oc | awk -F'+' '{print $1}'| awk '{print $2}')
+    OC_DEST=${_dest_dir}/oc-${OC_TEMP_VERSION}
+
+    mv ${OC_TEMP} ${OC_DEST}
+    echo "New oc client binary downloaded to ${OC_DEST}"
   fi  
 }
 
