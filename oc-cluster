@@ -1130,7 +1130,7 @@ then
         ;;
       *)
         shift # past argument
-        $key "$@"  2> /dev/null || echo "Command $key not found"
+        $key "$@" 
         ;;
    esac
 else
