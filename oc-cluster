@@ -720,6 +720,7 @@ function status.help {
 # Otherwise will ask for profile
 function destroy {
   [ "$1" == "-h" ] || [ "$1" == "--help" ] && ${FUNCNAME[0]}.help && return 0
+  [ "$1" == "-c" ] || [ "$1" == "--confirm" ] && CONFIRM=true && shift
 
   local _profile=$1
   local _active_profile=$([ -f $OPENSHIFT_HOME_DIR/active_profile ] && cat $OPENSHIFT_HOME_DIR/active_profile || echo '')
@@ -737,7 +738,11 @@ function destroy {
 
   if [ "$_profile" != "" ]
   then
-     read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
+     if [ -n "$CONFIRM" ] && [ "$CONFIRM" == "true" ] ; then
+       REPLY="y"
+     else
+	   read -p "Are you sure you want to destroy cluster with profile <$_profile> (y/n)? " -n 1 -r
+     fi
      echo    # move to a new line
      if [[ $REPLY =~ ^[Yy]$ ]]
      then
@@ -772,7 +777,7 @@ function destroy {
 
 function destroy.help {
   echo "Destroys the specified cluster, or the current active cluster"
-  echo "if none is specified."
+  echo "if none is specified. Use -c/--confirm to skip confirmation prompt"
   echo ""
   echo "All the information store for the profile will be removed"
   echo "- This information is stored in $OPENSHIFT_PROFILES_DIR/<PROFILE>"
@@ -780,7 +785,7 @@ function destroy.help {
   echo "- All the images created by this cluster will be removed"
   echo ""
   echo "Usage:"
-  echo " $SCRIPT_NAME destroy [<PROFILE>]"
+  echo " $SCRIPT_NAME destroy [-c || --confirm] [<PROFILE>]"
   echo ""
   echo "See the documentation at $DOC"
 }
