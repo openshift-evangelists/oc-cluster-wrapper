@@ -314,6 +314,8 @@ function up {
     mkdir -p $OPENSHIFT_HOST_PLUGINS_DIR
     mkdir -p $OPENSHIFT_HOST_PV_DIR
 
+    local -a __PARM_OC_ENV
+
     # Parse supported command line, and detect duplicates
     while [ "${1+defined}" ]; do
       local _key=$1
@@ -460,6 +462,14 @@ function up {
           __PARM_OC_ROUTING_SUFFIX="$2"
           shift 2; # past argument
           ;; 
+        --env|-e)
+          __PARM_OC_ENV+=("$2")
+          shift 2; # past argument
+          ;;
+        --env=*|-e=*)
+          __PARM_OC_ENV+=("${_key#*=}")
+          shift # past argument
+          ;;
         --use-existing-config|--skip-registry-check|--server-loglevel|--create-machine|--docker-machine|--forward-ports|--host-config-dir|--host-data-dir|--host-pv-dir|--host-volumes-dir)
           echo "Parameter $_key not supported. Remove it to use this tool"
           exit 1
@@ -513,13 +523,15 @@ function up {
     fi
     CMDLINE+=" --use-existing-config"
     CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
+    for ENV_PARM in "${__PARM_OC_ENV[@]}" ; do
+        CMDLINE+=" -e $ENV_PARM"
+    done
     # Add Self signed certificates to the profile
     mkdir -p ${OPENSHIFT_HOST_MASTER_DIR}
     cp -pf ${OPENSHIFT_CERTS_DIR}/*.{crt,key,txt} ${OPENSHIFT_HOST_MASTER_DIR}
     echo "[INFO] Shared certificates copied into the cluster"
     
     # TODO: If --server_log-level=0
-    # TODO: If -e or --env
     # TODO: Once all the command line has been processed and swallow. Don't pass additional
     # args to the CMDLINE
     # TODO: Add support for proxies and image streams, and
