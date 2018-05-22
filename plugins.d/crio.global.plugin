@@ -1,0 +1,49 @@
+#!/bin/bash
+
+function crio.help {
+   # Enables crio on a prifile. Crio needs to be properly installed
+   echo "  oc-cluster crio-enable [<profile>]"
+}
+
+# Enable a node for cri-o
+function crio-enable {
+  [ -z $1 ] && echo "profile name needs to be specified" && exit 1
+
+  echo "Enabling crio on profile <$1>"
+
+  local _node_config=$OPENSHIFT_PROFILES_DIR/$1/config/node-localhost/node-config.yaml
+
+  if [ "$(grep 'node-labels:' ${_node_config})" == "" ]
+  then
+    sed -i '/^kubeletArguments:/a \  node-labels:\n\  - router=true\n\  - registry=true' ${_node_config}
+    echo "${_node_config} modified. node-labels config added"
+  else
+    echo "Node already has node-labels config"
+  fi
+
+  if [ "$(grep 'image-service-endpoint:' ${_node_config})" == "" ]
+  then
+    sed -i '/^kubeletArguments:/a \  image-service-endpoint:\n\  - \/var\/run\/crio\/crio\.sock' ${_node_config}
+    echo "${_node_config} modified. image-service-endpoint config added"
+  else
+    echo "Node already has image-service-endpoint config"
+  fi
+
+  if [ "$(grep 'container-runtime-endpoint:' ${_node_config})" == "" ]
+  then
+    sed -i '/^kubeletArguments:/a \  container-runtime-endpoint:\n\  - \/var\/run\/crio\/crio\.sock' ${_node_config}
+    echo "${_node_config} modified. container-runtime-endpoint config added"
+  else
+    echo "Node already has container-runtime-endpoint config"
+  fi
+
+  if [ "$(grep 'container-runtime:' ${_node_config})" == "" ]
+  then
+    sed -i '/^kubeletArguments:/a \  container-runtime:\n\  - remote' ${_node_config}
+    echo "${_node_config} modified. container-runtime config added"
+  else
+    echo "Node already has container-runtime config"
+  fi
+
+}
+
