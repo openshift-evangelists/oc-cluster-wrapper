@@ -796,7 +796,7 @@ function list {
   echo "Profiles:"
   if [[ -d "$OPENSHIFT_PROFILES_DIR/" ]]
   then 
-    for i in `ls $OPENSHIFT_PROFILES_DIR`
+    for i in `ls -tr $OPENSHIFT_PROFILES_DIR`
     do
       echo "- $i"
     done
