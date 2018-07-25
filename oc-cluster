@@ -521,6 +521,17 @@ function up {
     if supports pv; then
       CMDLINE+=" --host-pv-dir $OPENSHIFT_HOST_PV_DIR"
     fi
+
+    if [ ! -z $__PARM_OC_HTTP_PROXY ]; then
+      CMDLINE+=" --http-proxy=$__PARM_OC_HTTP_PROXY"
+    fi
+    if [ ! -z $__PARM_OC_HTTPS_PROXY ]; then
+      CMDLINE+=" --https-proxy=$__PARM_OC_HTTPS_PROXY"
+    fi
+    if [ ! -z $__PARM_OC_NO_PROXY ]; then
+      CMDLINE+=" --no-proxy=$__PARM_OC_NO_PROXY"
+    fi
+
     CMDLINE+=" --use-existing-config"
     CMDLINE+=" -e TZ=$OC_CLUSTER_TZ"
     for ENV_PARM in "${__PARM_OC_ENV[@]}" ; do
