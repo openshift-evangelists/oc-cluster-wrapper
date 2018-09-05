@@ -193,7 +193,7 @@ The tool provides a plugin mechanism to add functionality. There's 2 types of pl
 * global plugins. Are always accesible.
 * local plugins. Need to be installed/uninstalled.
 
-Plugins are files in the link:.plugins.d/[plugins.d] directory of the tool. They need to have a name following the pattern <PLUGIN_NAME>.<global|local>.plugin
+Plugins are files in the link:plugins.d/[plugins.d] directory of the tool. They need to have a name following the pattern <PLUGIN_NAME>.<global|local>.plugin
 
 You can:
 
@@ -206,7 +206,7 @@ These plugins provide methods that augment the functionality of the tool.
 
 They are always available (installed). 
 
-There is a template for these plugins available link:.plugins.d/new-plugin.global.plugin[here]
+There is a template for these plugins available link:plugins.d/new-plugin.global.plugin[here]
 
 It has to have a method called <PLUGIN_NAME>.help with the description of the commands provided by the plugin, so they can be shown when
 printing the *oc-cluster -h*. 
@@ -216,7 +216,7 @@ These plugins provide methods that augment the functionality of the tool, or ins
 
 These plugins need to be installed. 
 
-There is a template for these plugins available link:.plugins.d/new-plugin.local.plugin[here]
+There is a template for these plugins available link:plugins.d/new-plugin.local.plugin[here]
 
 These plugins need to have at list these methods:
 
@@ -248,7 +248,7 @@ By default, a local plugin needs to always call <PLUGIN_NAME>.describe
 * user: Configures the cluster to use htpasswd and provide methods for user management
 * volumes: Provides commands to create PersistentVolumes (local to a profile or shared between profiles)
 
-And the list os constantly growing. Check what's available link:.plugins.d/[here] or get a list of plugins.
+And the list os constantly growing. Check what's available link:plugins.d/[here] or get a list of plugins.
 
 == Convenience methods for working with persistent volumes (Provided as global plugin)
 Most users will need to work with persistent services, so we have added two convenience methods for working with volumes. One for cluster-specific
