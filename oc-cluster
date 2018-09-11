@@ -893,12 +893,14 @@ _oc_cluster_completion() {
   local cur prev command commands profiles cluster_args
   COMPREPLY=()   # Array variable storing the possible completions.
   # TODO: Add "-h --help"
-  cur=\${COMP_WORDS[COMP_CWORD]}
+  OPENSHIFT_HOME_DIR="\${OPENSHIFT_HOME:-\$HOME/.oc}"
+  OPENSHIFT_PROFILES_DIR="\${OPENSHIFT_PROFILES_DIR:-\$OPENSHIFT_HOME_DIR/profiles}"
+  cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
   command="\${COMP_WORDS[1]}"
   commands="up down destroy list status show ssh console plugin-list plugin-install plugin-uninstall -h --help"
 
-  profiles=\$(ls -d $OPENSHIFT_PROFILES_DIR/*/ | xargs -L1 basename)
+  ls -d "\$OPENSHIFT_PROFILES_DIR"/*/ >/dev/null 2>&1 && profiles=\$(ls -d "\$OPENSHIFT_PROFILES_DIR"/*/ | xargs -L1 basename) || profiles=''
 
   boolean_args="--create-machine= --forward-ports= --metrics= --skip-registry-check= --use-existing-config="
   cluster_args="--docker-machine= -e --env= --host-config-dir= --host-data-dir= --host-volumes-dir= --image= --public-hostname= --routing-suffix= --server-loglevel= --version= --type=\$boolean_args"
